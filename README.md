@@ -1,3 +1,40 @@
-# SOLush
+# SOlush: A Push 3 Virtual Machine in Solidity
 
-a Push 3 VM in Solidity
+Welcome to **SOlush** (pronounced like *"polish"* without the "p"), a Solidity implementation of the [Push 3](http://faculty.hampshire.edu/lspector/push3-description.html) Virtual Machine designed to bring evolved genetic algorithms on-chain. By enabling the execution of Push 3 programs directly within Ethereum smart contracts, SOlush paves the way for decentralized, adaptive systems to address complex optimization problems.
+
+## 🌟 Vision
+
+SOlush is a key step toward realizing the vision of running decentralized evolutionary computation on blockchain systems. It allows for:
+
+- **Execution of Genetic Algorithms On-Chain:** Efficiently run evolved solutions to optimization problems entirely within the Ethereum Virtual Machine (EVM).
+- **Decentralized Adaptive Systems:** Enable the creation of autonomous agents capable of adapting in real time based on a target fitness function.
+- **Scalable Agentic Ecosystems:** Lay the groundwork for integrating evolutionary algorithms into decentralized applications (dApps).
+
+To understand the broader vision, check out the [Vision Document](vision.md).
+
+## 🚀 Getting Started
+
+SOlush is in active development. To contribute or test the functionality, follow these steps:
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-username/SOlush.git
+   cd SOlush
+   ```
+2. Install dependencies (if applicable).
+3. Review the examples and test cases to understand how Push 3 programs are executed on the VM.
+
+
+## 🛠️ Roadmap
+
+- **Core Features:**
+  - Implement core Push 3 data types and operations.
+  - Ensure compatibility with the EVM for seamless on-chain execution.
+- **Optimizations:**
+  - Improve gas efficiency for genetic algorithm execution.
+  - Add tools for algorithm identification and updates.
+- **Integrations:**
+  - Develop Agent contract with integration into optimizer pool.
+  - Enable interaction with decentralized applications for real-world problem-solving.
+
+---
