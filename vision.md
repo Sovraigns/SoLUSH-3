@@ -28,7 +28,13 @@ An agent is defined as an entity capable of perceiving its environment, processi
    - **LLMs are resource-intensive:** The computational complexity and size of LLMs make them impractical for direct execution in decentralized environments, where every operation incurs costs. Running even the simplest inference for an LLM would require off-chain computation and trust in external oracles, undermining decentralization.
    - **GAs are lightweight:** Genetic algorithms, by design, are computationally efficient. Their iterative, population-based approach to optimization fits naturally into resource-constrained environments. This efficiency ensures GAs can evolve and execute entirely on-chain, preserving transparency and trustless execution.
 
-2. **Auditability of Evolution vs Training**
+2. **Evolution vs. Training**
+
+   - **GAs evolve in parallel:** Genetic algorithms enable evolutionary processes to run across distributed populations simultaneously. This parallelism contrasts with the centralized training required for deep neural networks, which demand synchronized computation and significant infrastructure. GAs’ decentralized nature aligns well with blockchain environments.
+
+   - **Deep neural networks require centralized training:** Neural networks demand substantial computational resources and centralized coordination to train effectively. 
+
+3. **Auditability of Evolution vs Training**
 
    - **Training LLMs is opaque:** The progress of training deep neural networks is often difficult to evaluate and verify because testing its capabilities relies on secret data, which cannot be audited by external parties.
    - **GAs offer transparent evolution:** Genetic algorithms allow the progress of evolution to be easily audited against a target fitness function. This process is fully observable and can be verified at each step with minimal effort.
