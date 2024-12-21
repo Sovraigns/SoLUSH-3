@@ -1,6 +1,6 @@
 # SOlush: A Push 3 Virtual Machine in Solidity
 
-Welcome to **SOlush** (pronounced like *"polish"* without the "p"), a Solidity implementation of the [Push 3](http://faculty.hampshire.edu/lspector/push3-description.html) Virtual Machine designed to bring evolved genetic algorithms on-chain. By enabling the execution of Push 3 programs directly within Ethereum smart contracts, SOlush paves the way for decentralized, adaptive systems to address complex optimization problems.
+Welcome to **SoLUSH 3** (pronounced like *"slush"* without the "o", composed from *S*o*L*idity and p*USH* 3), a Solidity implementation of the [Push 3](http://faculty.hampshire.edu/lspector/push3-description.html) stack machine, designed to bring evolved genetic algorithms on-chain. By enabling the execution of Push 3 programs directly within Ethereum smart contracts, SoLush 3 paves the way for decentralized, adaptive systems to address complex optimization problems.
 
 ## 🌟 Vision
 
@@ -14,12 +14,12 @@ To understand the broader vision, check out the [Vision Document](vision.md).
 
 ## 🚀 Getting Started
 
-SOlush is in active development. To contribute or test the functionality, follow these steps:
+SoLUSH 3 is in active development. To contribute or test the functionality, follow these steps:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/SOlush.git
-   cd SOlush
+   git clone https://github.com/your-username/SoLUSH.git
+   cd SoLUSH
    ```
 2. Install dependencies (if applicable).
 3. Review the examples and test cases to understand how Push 3 programs are executed on the VM.
