@@ -1,10 +1,10 @@
-# SOlush: A Push 3 Virtual Machine in Solidity
+# **SoLUSH**: A Push 3 Virtual Machine in Solidity
 
-Welcome to **SoLUSH 3** (pronounced like *"slush"* without the "o", composed from *S*o*L*idity and p*USH* 3), a Solidity implementation of the [Push 3](http://faculty.hampshire.edu/lspector/push3-description.html) stack machine, designed to bring evolved genetic algorithms on-chain. By enabling the execution of Push 3 programs directly within Ethereum smart contracts, SoLush 3 paves the way for decentralized, adaptive systems to address complex optimization problems.
+Welcome to **SoLUSH 3** (pronounced like **"slush"** without the "o", composed from **S**o**L**idity and p**USH** 3), a Solidity implementation of the [Push 3 stack machine](http://faculty.hampshire.edu/lspector/push3-description.html), designed to bring evolved genetic algorithms on-chain. By enabling the execution of Push 3 programs directly within Ethereum smart contracts, SoLush 3 paves the way for decentralized, adaptive systems to address complex optimization problems.
 
 ## 🌟 Vision
 
-SOlush is a key step toward realizing the vision of running decentralized evolutionary computation on blockchain systems. It allows for:
+SoLUSH is a key step toward realizing the vision of running decentralized evolutionary computation on blockchain systems. It allows for:
 
 - **Execution of Genetic Algorithms On-Chain:** Efficiently run evolved solutions to optimization problems entirely within the Ethereum Virtual Machine (EVM).
 - **Decentralized Adaptive Systems:** Enable the creation of autonomous agents capable of adapting in real time based on a target fitness function.
