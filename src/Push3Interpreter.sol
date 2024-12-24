@@ -23,7 +23,9 @@ contract Push3Interpreter {
         NOOP,          // 0
         INTEGER_PLUS,  // 1
         INTEGER_MINUS, // 2
-        INTEGER_MULT   // 3
+        INTEGER_MULT,  // 3
+        INTEGER_DUP,   // 4
+        INTEGER_POP    // 5
     }
 
     // -----------------------------------------------------
@@ -202,6 +204,14 @@ contract Push3Interpreter {
                 temp[count] = makeInstruction(OpCode.INTEGER_MULT);
                 count++;
             }
+            else if (tokenType == 0x06) {
+                temp[count] = makeInstruction(OpCode.INTEGER_DUP);
+                count++;
+            }
+            else if (tokenType == 0x07) {
+                temp[count] = makeInstruction(OpCode.INTEGER_POP);
+                count++;
+            }
             else {
                 // unknown => NOOP
                 temp[count] = makeInstruction(OpCode.NOOP);
@@ -293,6 +303,18 @@ contract Push3Interpreter {
                         intTop -= 2;
                         intStack[intTop] = b * a;
                         intTop++;
+                    }
+                }
+                else if (op == OpCode.INTEGER_DUP) {
+                    if (intTop >= 1) {
+                        int256 a = intStack[intTop - 1];
+                        intStack[intTop] = a;
+                        intTop++;
+                    }
+                }
+                else if (op == OpCode.INTEGER_POP) {
+                    if (intTop >= 1) {
+                        intTop -= 1;
                     }
                 }
             }

@@ -174,6 +174,61 @@ contract Push3InterpreterTest is Test {
         assertEq(finalIntStack[0], 30, "Should be 10 * 3 = 30");
     }
 
+    function test_Dup() public view {
+
+        bytes memory code = hex"030006020000000A06";
+
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,  
+            9, 
+            0
+        );
+
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+
+        int256[] memory initIntStack = new int256[](0);
+
+        // Run
+        (
+            ,
+            ,
+            int256[] memory finalIntStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack);
+
+        assertEq(finalIntStack.length, 2, "finalIntStack should have length 1");
+        assertEq(finalIntStack[0], finalIntStack[1], "The top 2 values on the stack should be equal.");
+    }
+
+    function test_Pop() public view {
+
+        bytes memory code = hex"030006020000000A07";
+
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,  
+            9, 
+            0
+        );
+
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+
+        int256[] memory initIntStack = new int256[](0);
+
+        // Run
+        (
+            ,
+            ,
+            int256[] memory finalIntStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack);
+
+        assertEq(finalIntStack.length, 0, "finalIntStack should be empty");
+    }
+
     /**
      * @notice Test with an unknown token (0xF0).
      * We expect the parser to treat it as "unknown => NOOP" 
