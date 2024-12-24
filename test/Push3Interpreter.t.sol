@@ -173,4 +173,149 @@ contract Push3InterpreterTest is Test {
         assertEq(finalIntStack.length, 1, "finalIntStack should have length 1");
         assertEq(finalIntStack[0], 30, "Should be 10 * 3 = 30");
     }
+
+    /**
+     * @notice Test with an unknown token (0xF0).
+     * We expect the parser to treat it as "unknown => NOOP" 
+     * and produce a NOOP instruction descriptor.
+     * We'll confirm finalIntStack remains empty (or unchanged).
+     */
+    function test_UnknownToken() public view {
+        // We'll create a 5-byte code:
+        //  0x03 => SUBLIST
+        //  0x00 0x01 => length=1
+        //  0xF0 => unknown token
+        bytes memory code = hex"030001F0";
+
+        // We'll parse offset=0, length=4
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST, 
+            0,   // offset
+            4,   // length
+            0
+        );
+
+        // init stacks
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+        int256[] memory initIntStack = new int256[](0);
+
+        (
+            ,
+            ,
+            int256[] memory finalIntStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack);
+
+        // finalIntStack should remain empty => no literal was pushed
+        assertEq(finalIntStack.length, 0, "Expected finalIntStack to remain empty with unknown token => NOOP");
+    }
+
+    /**
+     * @notice Test a partial literal: we claim to have 4 bytes, but the code array ends early.
+     * This should trigger the `else { break; }` branch in parseSublist 
+     * when trying to read 4 bytes for the INT_LITERAL.
+     */
+    function test_OutOfRangeLiteral() public view {
+        //  0x03 => SUBLIST
+        //  0x00 0x04 => length=4
+        //  0x02 => INT_LITERAL token
+        // Then we have only 1 byte left instead of 4 => insufficient
+        //
+        // total = 1 + 2 + 1 + 1 = 5 bytes
+        // The parser tries to read 4 bytes after seeing 0x04, fails, hits break.
+        bytes memory code = hex"03000402FF";
+
+        // parse offset=0, length=5
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,
+            5,
+            0
+        );
+
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+        int256[] memory initIntStack = new int256[](0);
+
+        (
+            ,
+            ,
+            int256[] memory finalIntStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack);
+
+        // Because the parse breaks early, we expect finalIntStack is empty or unchanged
+        assertEq(finalIntStack.length, 0, "Expected parse to break on out-of-range literal => no ints pushed");
+    }
+
+    /**
+     * @notice Test "not enough int args" scenario:
+     * We'll push only 1 literal, then do INTEGER_PLUS which needs 2 integers on the stack.
+     * In the main loop, it sees intTop < 2 => it does nothing.
+     */
+    function test_NotEnoughIntArgs() public view {
+        bytes memory code = hex"030006020000000305";
+        // Breaking it down:
+        // 0x03          => SUBLIST
+        // 0x00 0x06     => length=6
+        // 0x02 00000003 => INT_LITERAL(3)
+        // 0x05          => INTEGER_MUL
+
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,
+            9,
+            0
+        );
+
+        // set up stacks
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+        int256[] memory initIntStack = new int256[](0);
+
+        (
+            ,
+            ,
+            int256[] memory finalIntStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack);
+
+        // We expect finalIntStack => [5], 
+        // because the PLUS instruction sees only 1 int => does nothing => 5 remains
+        assertEq(finalIntStack.length, 1, "Should have 1 int left");
+        assertEq(finalIntStack[0], 3, "Expected stack top=3 after insufficient-args plus");
+    }
+
+    /**
+     * @notice Test sublist length overflow:
+     * subLen claims bigger than the code array. Should trigger else { break; } 
+     * in the sublist parsing for that sublist.
+     */
+    function test_SublistLengthOverflow() public view {
+        
+        bytes memory code = hex"050010FFFFFF"; 
+
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,
+            6,
+            0
+        );
+
+        // init
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+        int256[] memory initIntStack = new int256[](0);
+
+        (
+            ,
+            ,
+            int256[] memory finalIntStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack);
+
+        // Expect no items pushed => finalIntStack empty
+        assertEq(finalIntStack.length, 0, "Expected empty stack if sublist length is out of range => parse break");
+    }
 }
