@@ -879,6 +879,7 @@ dependencies = [
 name = "offchain"
 version = "0.1.0"
 dependencies = [
+ "rand",
  "revm",
  "serde",
  "serde_json",
