@@ -27,7 +27,7 @@ contract Push3IntAdapterTest is Test {
      * For example, we might do a program that just leaves its input unchanged 
      * (like a NOOP). 
      */
-    function test_run1In1Out_noop() public {
+    function test_run1In1Out_noop() public view {
         bytes memory code = hex"03000100";
 
         int256 inputVal = 123;
@@ -40,7 +40,7 @@ contract Push3IntAdapterTest is Test {
     /**
      * @notice Test run2In1Out. We'll push 5, 7, do an op that leaves 12.
      */
-    function test_run2In1Out_plus() public {
+    function test_run2In1Out_plus() public view {
         bytes memory code = hex"03000101";
 
         int256 in1 = 5;
@@ -54,7 +54,7 @@ contract Push3IntAdapterTest is Test {
      * @notice Test run1In2Out. Push a constant to a stack with 1.
      * For now, we do a placeholder code. 
      */
-    function test_run1In2Out() public {
+    function test_run1In2Out() public view {
         bytes memory code = hex"0300050200000003";
 
         int256 inVal = 42;
@@ -68,7 +68,7 @@ contract Push3IntAdapterTest is Test {
      * @notice Test run0InNOut. 
      * We'll feed a code that pushes some constants, and see the final stack.
      */
-    function test_run0InNOut() public {
+    function test_run0InNOut() public view {
         
         bytes memory code = hex"03000A02000000030200000005";
 
