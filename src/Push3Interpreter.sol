@@ -6,8 +6,7 @@ import "forge-std/console.sol";
 /**
  * @title Push3Interpreter
  * @dev Demonstrates a minimal Push3-like interpreter that uses
- *      a token-based bytecode approach. We fix the assembly
- *      endianness issues by copying exact bytes for 2- and 4-byte reads.
+ *      a token-based bytecode approach.
  */
 contract Push3Interpreter {
     // -----------------------------------------------------
@@ -21,8 +20,10 @@ contract Push3Interpreter {
     }
 
     enum OpCode {
-        NOOP,         // 0
-        INTEGER_PLUS  // 1
+        NOOP,          // 0
+        INTEGER_PLUS,  // 1
+        INTEGER_MINUS, // 2
+        INTEGER_MULT   // 3
     }
 
     // -----------------------------------------------------
@@ -111,12 +112,15 @@ contract Push3Interpreter {
      */
     function readUint16(bytes calldata code, uint32 start) internal pure returns (uint16 val) {
         require(start + 2 <= code.length, "readUint16 out of range");
+        uint256 word;
         assembly {
             let buf := mload(0x40)
             calldatacopy(buf, add(code.offset, start), 2)
-            let word := mload(buf)
+            word := mload(buf)
             val := and(word, 0xffff)
         }
+        // Not sure this is correct
+        val = uint16(word >> 240);
     }
 
     // -----------------------------------------------------
@@ -128,6 +132,7 @@ contract Push3Interpreter {
      *   0x01 => INTEGER_PLUS
      *   0x02 => INT_LITERAL => read next 4 bytes => int32
      *   0x03 => SUBLIST => read next 2 bytes => subLen => parse that
+     *   0x04 => INTEGER_MINUS
      */
     function parseSublist(bytes calldata code, uint32 off, uint32 len)
         internal
@@ -186,6 +191,16 @@ contract Push3Interpreter {
                 } else {
                     break;
                 }
+            }
+            else if (tokenType == 0x04) {
+                // INTEGER_PLUS
+                temp[count] = makeInstruction(OpCode.INTEGER_MINUS);
+                count++;
+            }
+            else if (tokenType == 0x05) {
+                // INTEGER_PLUS
+                temp[count] = makeInstruction(OpCode.INTEGER_MULT);
+                count++;
             }
             else {
                 // unknown => NOOP
@@ -257,6 +272,26 @@ contract Push3Interpreter {
                         int256 b = intStack[intTop - 2];
                         intTop -= 2;
                         intStack[intTop] = b + a;
+                        intTop++;
+                    }
+                }
+                else if (op == OpCode.INTEGER_MINUS) {
+                    // pop top 2 => minus
+                    if (intTop >= 2) {
+                        int256 a = intStack[intTop - 1];
+                        int256 b = intStack[intTop - 2];
+                        intTop -= 2;
+                        intStack[intTop] = b - a;
+                        intTop++;
+                    }
+                }
+                else if (op == OpCode.INTEGER_MULT) {
+                    // pop top 2 => minus
+                    if (intTop >= 2) {
+                        int256 a = intStack[intTop - 1];
+                        int256 b = intStack[intTop - 2];
+                        intTop -= 2;
+                        intStack[intTop] = b * a;
                         intTop++;
                     }
                 }
