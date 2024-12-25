@@ -43,7 +43,7 @@ contract Push3InterpreterTest is Test {
         //  [9..12] = 0x00000020 => 32
         //  [13] = 0x01 => plus
 
-        bytes memory code = hex"03000B020000000A020000002001";        
+        bytes memory code = hex"03000B020000000A020000002001";
 
         // Or fully concatenated:
         // 0x03 00 0B 02 00 00 00 0A 02 00 00 00 20 01

@@ -2,3 +2,5 @@ onchain/cache/
 onchain/out/
 
 offchain/target/
+
+.direnv
