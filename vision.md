@@ -41,13 +41,33 @@ An agent is defined as an entity capable of perceiving its environment, processi
 
 ---
 
-## **Theoretical Framework for Decentralized Algorithm Evolution**
+## **Theoretical Framework for Decentralized Genetic Programming**
 
-A protocol providing agents as a service could leverage genetic algorithms to address complex problems within blockchain environments. Read through this [real-life usecase explaining the applicability of agents to DeFi](example.md). Central to such a system would be the development of a Push 3 Virtual Machine (VM), enabling efficient execution of genetic algorithms. An "Optimizer Pool", an network of nodes could collaboratively train and evolve these algorithms offchain. These nodes would compete to improve the fitness of the algorithms. Once an improvement, a measuruable better solution to the fitness function is found in off-chain computation, a node would submit it to be accepted into the population of solutions registered on chain, in exchange for a rewards payment by the protocol. The nodes of the optimizer pool would run under an incentivization model simira to proof-of-work systems.
+A protocol providing agents as a service could leverage genetic programming to address complex problems within blockchain environments. Central to such a system would be the development of a Push 3 Virtual Machine (VM), enabling efficient execution of genetic algorithms. Furthermore, this protocol would combines on-chain smart contracts with off-chain optimization to evolve and deploy efficient algorithms for DeFi tasks.
+
+### On-Chain: Tasks and Deployment
+1. **Task Creation**: Optimization problems are registered as "Tasks" in the "Registry." Each Task includes:
+   - A fitness function (goal criteria).
+   - Evaluation parameters (data and conditions).
+   - A population of algorithms (initially empty).
+2. **Agent Deployment**: The best-performing algorithm from the population is selected and deployed to the relevant smart contract. Read through this [real-life usecase explaining the applicability of agents to DeFi](example.md). When better algorithms are discovered, the on-chain agent is updated.
+
+### Off-Chain: Evolution and Validation
+1. **Task Selection**: Optimizers (network participants) fetch a Task from the Registry.
+2. **Algorithm Evolution**:
+   - Optimizers run simulations locally using synthetic or historical blockchain data.
+   - Genetic algorithms are applied to evolve better solutions, improving fitness scores.
+3. **Submission and Validation**: Improved algorithms are submitted to a "Validator Pool," which verifies the results. Validators vote on whether to accept the new algorithm into the population, replacing weaker ones.
+4. **Incentives**: Successful submissions earn rewards for the Optimizer.
+
+### Key Components
+- **Registry (on-chain)**: Manages Tasks and stores algorithm populations.
+- **Optimizers (off-chain)**: Compete to evolve better solutions.
+- **Validator Pool (off-chain)**: Ensures the quality and legitimacy of submissions.
 
 ![Components](/components.png)
 
-To evaluate the effectiveness of distributed evolution, a "Council" mechanism needs to be created. This Council would consist of validators who execute the latest evolved algorithms and assess their performance against a predefined target fitness function. Validators would then cast votes on whether the new algorithms deliver measurable improvements. This transparent voting process ensures that only the most effective solutions are rewarded and integrated, fostering trust and collaboration across the Optimizer Pool. By aligning incentives with measurable progress, such a framework provides a reliable and decentralized method for advancing algorithmic evolution.
+This framework integrates off-chain computation with on-chain validation and deployment, ensuring scalable, transparent optimization. By decentralizing the process, it aligns incentives and fosters continuous improvement tailored to real-world DeFi needs. Ultimately, this system creates a foundation for scalable agent development, aligning with the broader concept of agents as a service, where users and protocols in DeFi can deploy and leverage optimized, evolving AI-agents tailored to specific tasks.
 
-Ultimately, this system creates a foundation for scalable agent development, aligning with the broader concept of agents as a service, where users and protocols in DeFi can deploy and leverage optimized, evolving algorithms tailored to specific tasks.
+
 
