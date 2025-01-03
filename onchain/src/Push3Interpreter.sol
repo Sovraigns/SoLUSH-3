@@ -10,22 +10,45 @@ import "forge-std/console.sol";
  */
 contract Push3Interpreter {
     // -----------------------------------------------------
+    // 0. CONSTANTS
+    // -----------------------------------------------------
+    uint8 internal constant OPCODE_BOOL_OFFSET = 0x6;
+
+    // -----------------------------------------------------
     // 1. ENUMS
     // -----------------------------------------------------
     enum CodeTag {
         NO_TAG,       // 0
         INSTRUCTION,  // 1
         INT_LITERAL,  // 2
-        SUBLIST       // 3
+        SUBLIST,      // 3
+        BOOL_LITERAL  // 4
     }
 
     enum OpCode {
-        NOOP,          // 0
-        INTEGER_PLUS,  // 1
-        INTEGER_MINUS, // 2
-        INTEGER_MULT,  // 3
-        INTEGER_DUP,   // 4
-        INTEGER_POP    // 5
+        NOOP,            // 0
+        INTEGER_PLUS,    // 1
+        INTEGER_MINUS,   // 2
+        INTEGER_MULT,    // 3
+        INTEGER_DUP,     // 4
+        INTEGER_POP,     // 5
+        BOOL_DUP,        // OPCODE_BOOL_OFFSET + 0
+        BOOL_POP,        // OPCODE_BOOL_OFFSET + 1
+        BOOL_SWAP,       // OPCODE_BOOL_OFFSET + 2
+        BOOL_FLUSH,      // OPCODE_BOOL_OFFSET + 3
+        BOOL_STACKDEPTH, // OPCODE_BOOL_OFFSET + 4
+        BOOL_NOT,        // OPCODE_BOOL_OFFSET + 5
+        BOOL_AND,        // OPCODE_BOOL_OFFSET + 6
+        BOOL_OR,         // OPCODE_BOOL_OFFSET + 7
+        BOOL_EQ,         // OPCODE_BOOL_OFFSET + 8
+        BOOL_FROMFLOAT,  // OPCODE_BOOL_OFFSET + 9
+        BOOL_FROMINTEGER,// OPCODE_BOOL_OFFSET + 10
+        BOOL_ROT,        // OPCODE_BOOL_OFFSET + 11
+        BOOL_SHOVE,      // OPCODE_BOOL_OFFSET + 12
+        BOOL_YANK,       // OPCODE_BOOL_OFFSET + 13
+        BOOL_YANKDUP,    // OPCODE_BOOL_OFFSET + 14
+        BOOL_DEFINE,     // OPCODE_BOOL_OFFSET + 15
+        BOOL_RAND        // OPCODE_BOOL_OFFSET + 16
     }
 
     // -----------------------------------------------------
