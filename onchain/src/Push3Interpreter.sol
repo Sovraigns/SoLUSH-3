@@ -142,6 +142,19 @@ contract Push3Interpreter {
         val = uint32(word >> 224);
     }
 
+    function readBool(bytes calldata code, uint32 start) internal pure returns (bool val) {
+        require(start + 1 <= code.length, "readBool out of range");
+        uint256 word;
+        assembly {
+            let buf := mload(0x40) // free memory
+            // copy exactly 1 byte from code into buf
+            calldatacopy(buf, add(code.offset, start), 1)
+            // assign 1 byte to a word
+            word := shr(248, mload(buf))
+        }
+        val = word & 1 == 1;
+    }
+
     /**
      * @dev Read 2 bytes from `code` at `start` as uint16.
      */
