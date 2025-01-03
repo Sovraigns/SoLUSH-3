@@ -108,9 +108,19 @@ contract Push3Interpreter {
         return makeDescriptor(CodeTag.INT_LITERAL, 0, 0, masked);
     }
 
+    function makeBoolLiteral(bool val) internal pure returns (uint256) {
+        uint256 masked;
+        if (val) masked = uint256(1);
+        return makeDescriptor(CodeTag.BOOL_LITERAL, 0, 0, masked);
+    }
+
     function extractInt32(uint256 desc) internal pure returns (int32) {
         // read the low 32 bits
         return int32(uint32(getLow184(desc)));
+    }
+
+    function extractBool(uint256 desc) internal pure returns (bool) {
+        return desc & 1 == 1;
     }
 
     // -----------------------------------------------------
