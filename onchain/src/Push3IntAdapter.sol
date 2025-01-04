@@ -28,9 +28,9 @@ contract Push3IntAdapter {
         view
         returns (uint256)
     {
-        // CodeTag.SUBLIST is typically enum = 3, but 
-        // let's fetch it via 
-        //   (uint8)Push3Interpreter.CodeTag.SUBLIST 
+        // CodeTag.SUBLIST is typically enum = 4, but
+        // let's fetch it via
+        //   (uint8)Push3Interpreter.CodeTag.SUBLIST
         // or we can directly pass 3 if we know the numeric value.
 
         // We'll do:
@@ -70,7 +70,7 @@ contract Push3IntAdapter {
         initIntStack[0] = in1;
 
         // 4) Run
-        (, , int256[] memory finalIntStack) =
+        (, , int256[] memory finalIntStack,) =
             interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack);
 
         // 5) Return top of final int stack
@@ -96,11 +96,11 @@ contract Push3IntAdapter {
         initIntStack[0] = in1;
         initIntStack[1] = in2;
 
-        (, , int256[] memory finalIntStack) =
+        (, , int256[] memory finalIntStack,) =
             interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack);
 
         require(finalIntStack.length > 0, "No integer output");
-        
+
         out1 = finalIntStack[finalIntStack.length - 1];
     }
 
@@ -121,7 +121,7 @@ contract Push3IntAdapter {
         int256[] memory initIntStack = new int256[](1);
         initIntStack[0] = in1;
 
-        (, , int256[] memory finalIntStack) =
+        (, , int256[] memory finalIntStack,) =
             interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack);
 
         require(finalIntStack.length >= 2, "Not enough outputs");
@@ -130,7 +130,7 @@ contract Push3IntAdapter {
     }
 
     /**
-     * @notice Zero int input, returns entire final int stack 
+     * @notice Zero int input, returns entire final int stack
      */
     function run0InNOut(bytes calldata code)
         external
@@ -144,7 +144,7 @@ contract Push3IntAdapter {
         uint256[] memory initCodeStack = new uint256[](0);
         int256[] memory initIntStack = new int256[](0);
 
-        (, , int256[] memory finalIntStack) =
+        (, , int256[] memory finalIntStack,) =
             interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack);
 
         return finalIntStack;

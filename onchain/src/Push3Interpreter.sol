@@ -293,7 +293,7 @@ contract Push3Interpreter {
         uint256[] calldata initCodeStack, // empty
         uint256[] calldata initExecStack, // descriptors
         int256[] calldata initIntStack, // 32bit word
-        bool[] calldata initBoolStack
+        bool[] calldata initBoolStack // bool array
     )
         external
         pure
@@ -435,6 +435,11 @@ contract Push3Interpreter {
         finalIntStack = new int256[](intTop);
         for (uint256 i = 0; i < intTop; i++) {
             finalIntStack[i] = intStack[i];
+        }
+
+        finalBoolStack = new int256[](boolTop);
+        for (uint256 i = 0; i < boolTop; i++) {
+            finalBoolStack[i] = boolStack[i];
         }
     }
 }
