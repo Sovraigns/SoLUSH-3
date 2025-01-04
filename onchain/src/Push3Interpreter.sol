@@ -134,47 +134,45 @@ contract Push3Interpreter {
     // -----------------------------------------------------
 
     /**
+     * @dev Read `x` bytes from `code` at `start` as uint.
+     */
+    function readUint(bytes calldata code, uint32 start, uint256 numBytes) internal pure returns (uint256 word) {
+        if (start + bytesNum) > code.length) revert ReadUintOutOfRange();
+        assembly {
+            let buf := mload(0x40) // free memory
+            // copy exactly x bytes from code into buf
+            calldatacopy(buf, add(code.offset, start), numBytes)
+            word := mload(buf)
+        }
+        word >>= 256 - numBytes * 8;
+    }
+
+    /**
      * @dev Read 4 bytes from `code` at `start` as uint32.
      */
     function readUint32(bytes calldata code, uint32 start) internal pure returns (uint32 val) {
-        require(start + 4 <= code.length, "readUint32 out of range");
-        uint256 word;
-        assembly {
-            let buf := mload(0x40) // free memory
-            // copy exactly 4 bytes from code into buf
-            calldatacopy(buf, add(code.offset, start), 4)
-            word := mload(buf)
-        }
-        val = uint32(word >> 224);
-    }
-
-    function readBool(bytes calldata code, uint32 start) internal pure returns (bool val) {
-        require(start + 1 <= code.length, "readBool out of range");
-        uint256 word;
-        assembly {
-            let buf := mload(0x40) // free memory
-            // copy exactly 1 byte from code into buf
-            calldatacopy(buf, add(code.offset, start), 1)
-            // assign 1 byte to a word
-            word := shr(248, mload(buf))
-        }
-        val = word & 1 == 1;
+        val = uint32(readUint(code, start, 4));
     }
 
     /**
      * @dev Read 2 bytes from `code` at `start` as uint16.
      */
     function readUint16(bytes calldata code, uint32 start) internal pure returns (uint16 val) {
-        require(start + 2 <= code.length, "readUint16 out of range");
-        uint256 word;
-        assembly {
-            let buf := mload(0x40)
-            calldatacopy(buf, add(code.offset, start), 2)
-            word := mload(buf)
-            val := and(word, 0xffff)
-        }
-        // Not sure this is correct
-        val = uint16(word >> 240);
+        val = uint16(readUint(code, start, 2));
+    }
+
+    /**
+     * @dev Read 1 byte from `code` at `start` as uint8.
+     */
+    function readUint8(bytes calldata code, uint32 start) internal pure returns (uint8 val) {
+        val = uint8(readUint(code, start, 1));
+    }
+
+    /**
+     * @dev Read 1 byte from `code` at `start` as bool.
+     */
+    function readBool(bytes calldata code, uint32 start) internal pure returns (bool val) {
+        val = readUint(code, start, 1) & 1 == 1;
     }
 
     // -----------------------------------------------------
@@ -183,7 +181,7 @@ contract Push3Interpreter {
     /**
      * Token format is combination of ordered CodeTag and OpCode:
      *   0x00 => NOOP/NO_TAG
-     *   0x01 => INSTRUCTION => TODO: decide what to do
+     *   0x01 => INSTRUCTION => read next 1 byte => OpCode
      *   0x02 => INT_LITERAL => read next 4 bytes => int32
      *   0x03 => BOOL_LITERAL => read next 1 byte => bool
      *   0x04 => SUBLIST => read next 2 bytes => subLen => parse that
@@ -216,12 +214,14 @@ contract Push3Interpreter {
             }
             else if (tokenType == 0x01) {
                 // INSTRUCTION
-                // TODO: implement what is decided
-                // OpCode instructionOpcode = OpCode(readUint8(code,cur));
-                // validate instruction in range, otherwise NOOP
-                // temp[count] = makeInstruction(instructionOpcode);
-                // count++;
-                break; // unimplemented
+                if (cur + 1 <= endPos && (cur + 1) <= code.length) {
+                    uint8 opcode = readUint8(code,cur);
+                    if (opcode < OPCODE_INTEGER_OFFSET || opcode > OPCODE_LAST) opcode = uint8(0); // NOOP
+                    temp[count] = makeInstruction(OpCode(opcode));
+                    count++;
+                } else {
+                    break;
+                }
             }
             else if (tokenType == 0x02) {
                 // INT_LITERAL => 4 bytes
