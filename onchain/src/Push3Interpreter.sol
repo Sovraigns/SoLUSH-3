@@ -341,10 +341,10 @@ contract Push3Interpreter {
 
             if (tag == CodeTag.INSTRUCTION) {
                 OpCode op = getOpCode(topDesc);
-                if (op == OpCode.NOOP) {
-                    // do nothing
+                if (op < OPCODE_INTEGER_OFFSET) {
+                    // NOOP, do nothing
                 }
-                else if (uint8(op) <= OPCODE_INTEGER_OFFSET) {
+                else if (uint8(op) < OPCODE_BOOL_OFFSET) {
                     // INTEGER OPCODES
                     if (op == OpCode.INTEGER_PLUS) {
                         // pop top 2 => sum
@@ -389,7 +389,7 @@ contract Push3Interpreter {
                         }
                     }
                 }
-                else if (uint8(op) <= OPCODE_BOOL_OFFSET) {
+                else if (uint8(op) <= OPCODE_LAST) {
                     // BOOL OPCODES
                 }
             }
