@@ -9,6 +9,8 @@ import "forge-std/console.sol";
  *      a token-based bytecode approach.
  */
 contract Push3Interpreter {
+    // ReadUint`numBits` out of the code range.
+    error ReadUintOutOfRange(uint256 numBits);
     // -----------------------------------------------------
     // 0. CONSTANTS
     // -----------------------------------------------------
@@ -137,14 +139,15 @@ contract Push3Interpreter {
      * @dev Read `x` bytes from `code` at `start` as uint.
      */
     function readUint(bytes calldata code, uint32 start, uint256 numBytes) internal pure returns (uint256 word) {
-        if (start + bytesNum) > code.length) revert ReadUintOutOfRange();
+        uint256 numBits = numBytes * 8;
+        if (start + bytesNum) > code.length) revert ReadUintOutOfRange(numBits);
         assembly {
             let buf := mload(0x40) // free memory
             // copy exactly x bytes from code into buf
             calldatacopy(buf, add(code.offset, start), numBytes)
             word := mload(buf)
         }
-        word >>= 256 - numBytes * 8;
+        word >>= 256 - numBits;
     }
 
     /**
