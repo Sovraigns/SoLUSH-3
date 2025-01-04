@@ -14,9 +14,9 @@ contract Push3Interpreter {
     // -----------------------------------------------------
     // 0. CONSTANTS
     // -----------------------------------------------------
-    uint8 internal constant OPCODE_INTEGER_OFFSET = 0x05;
-    uint8 internal constant OPCODE_BOOL_OFFSET = 0x0a;
-    uint8 internal constant OPCODE_LAST = OPCODE_BOOL_OFFSET + 0x10;
+    uint8 internal constant OPCODE_INTEGER_OFFSET = uint8(OpCode.INTEGER_PLUS);
+    uint8 internal constant OPCODE_BOOL_OFFSET = uint8(OpCode.BOOL_DUP);
+    uint8 internal constant OPCODE_LAST = int8(OpCode.BOOL_RAND);
 
     // -----------------------------------------------------
     // 1. ENUMS
