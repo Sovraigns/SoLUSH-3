@@ -69,9 +69,12 @@ contract Push3IntAdapter {
         int256[] memory initIntStack = new int256[](1);
         initIntStack[0] = in1;
 
+        // No bool stack
+        bool[] memory initBoolStack = new bool[](0);
+
         // 4) Run
         (, , int256[] memory finalIntStack,) =
-            interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack);
+            interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
 
         // 5) Return top of final int stack
         require(finalIntStack.length > 0, "No integer output produced");
@@ -96,8 +99,10 @@ contract Push3IntAdapter {
         initIntStack[0] = in1;
         initIntStack[1] = in2;
 
+        bool[] memory initBoolStack = new bool[](0);
+
         (, , int256[] memory finalIntStack,) =
-            interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack);
+            interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
 
         require(finalIntStack.length > 0, "No integer output");
 
@@ -121,8 +126,10 @@ contract Push3IntAdapter {
         int256[] memory initIntStack = new int256[](1);
         initIntStack[0] = in1;
 
+        bool[] memory initBoolStack = new bool[](0);
+
         (, , int256[] memory finalIntStack,) =
-            interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack);
+            interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
 
         require(finalIntStack.length >= 2, "Not enough outputs");
         out1 = finalIntStack[finalIntStack.length - 1];
@@ -143,9 +150,10 @@ contract Push3IntAdapter {
 
         uint256[] memory initCodeStack = new uint256[](0);
         int256[] memory initIntStack = new int256[](0);
+        bool[] memory initBoolStack = new bool[](0);
 
         (, , int256[] memory finalIntStack,) =
-            interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack);
+            interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
 
         return finalIntStack;
     }
