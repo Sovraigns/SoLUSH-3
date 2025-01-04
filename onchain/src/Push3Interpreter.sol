@@ -342,10 +342,52 @@ contract Push3Interpreter {
                     // do nothing
                 }
                 else if (uint8(op) <= OPCODE_INTEGER_OFFSET) {
-                    (intTop, intStack) = execIntOpCode(intTop, intStack, op);
+                    // INTEGER OPCODES
+                    if (op == OpCode.INTEGER_PLUS) {
+                        // pop top 2 => sum
+                        if (intTop >= 2) {
+                            int256 a = intStack[intTop - 1];
+                            int256 b = intStack[intTop - 2];
+                            intTop -= 2;
+                            intStack[intTop] = b + a;
+                            intTop++;
+                        }
+                    }
+                    else if (op == OpCode.INTEGER_MINUS) {
+                        // pop top 2 => minus
+                        if (intTop >= 2) {
+                            int256 a = intStack[intTop - 1];
+                            int256 b = intStack[intTop - 2];
+                            intTop -= 2;
+                            intStack[intTop] = b - a;
+                            intTop++;
+                        }
+                    }
+                    else if (op == OpCode.INTEGER_MULT) {
+                        // pop top 2 => minus
+                        if (intTop >= 2) {
+                            int256 a = intStack[intTop - 1];
+                            int256 b = intStack[intTop - 2];
+                            intTop -= 2;
+                            intStack[intTop] = b * a;
+                            intTop++;
+                        }
+                    }
+                    else if (op == OpCode.INTEGER_DUP) {
+                        if (intTop >= 1) {
+                            int256 a = intStack[intTop - 1];
+                            intStack[intTop] = a;
+                            intTop++;
+                        }
+                    }
+                    else if (op == OpCode.INTEGER_POP) {
+                        if (intTop >= 1) {
+                            intTop -= 1;
+                        }
+                    }
                 }
                 else if (uint8(op) <= OPCODE_BOOL_OFFSET) {
-                    (boolTop, boolStack) = execBoolOpCode(boolTop, boolStack, op);
+                    // BOOL OPCODES
                 }
             }
             else if (tag == CodeTag.INT_LITERAL) {
@@ -391,51 +433,5 @@ contract Push3Interpreter {
         for (uint256 i = 0; i < intTop; i++) {
             finalIntStack[i] = intStack[i];
         }
-    }
-
-    function execIntOpCode(uint256 intTop, int256[] memory intStack, OpCode op) internal returns (uint256, int256[] memory) {
-        if (op == OpCode.INTEGER_PLUS) {
-            // pop top 2 => sum
-            if (intTop >= 2) {
-                int256 a = intStack[intTop - 1];
-                int256 b = intStack[intTop - 2];
-                intTop -= 2;
-                intStack[intTop] = b + a;
-                intTop++;
-            }
-        }
-        else if (op == OpCode.INTEGER_MINUS) {
-            // pop top 2 => minus
-            if (intTop >= 2) {
-                int256 a = intStack[intTop - 1];
-                int256 b = intStack[intTop - 2];
-                intTop -= 2;
-                intStack[intTop] = b - a;
-                intTop++;
-            }
-        }
-        else if (op == OpCode.INTEGER_MULT) {
-            // pop top 2 => minus
-            if (intTop >= 2) {
-                int256 a = intStack[intTop - 1];
-                int256 b = intStack[intTop - 2];
-                intTop -= 2;
-                intStack[intTop] = b * a;
-                intTop++;
-            }
-        }
-        else if (op == OpCode.INTEGER_DUP) {
-            if (intTop >= 1) {
-                int256 a = intStack[intTop - 1];
-                intStack[intTop] = a;
-                intTop++;
-            }
-        }
-        else if (op == OpCode.INTEGER_POP) {
-            if (intTop >= 1) {
-                intTop -= 1;
-            }
-        }
-        return (intTop, intStack);
     }
 }
