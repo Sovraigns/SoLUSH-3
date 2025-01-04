@@ -391,6 +391,73 @@ contract Push3Interpreter {
                 }
                 else if (uint8(op) <= OPCODE_LAST) {
                     // BOOL OPCODES
+                    if (op == OpCode.BOOL_DUP) {
+                        // dup top
+                        if (boolTop >= 1) {
+                            bool a = boolStack[boolTop - 1];
+                            boolStack[boolTop] = a;
+                            boolTop++;
+                        }
+                    }
+                    else if (op == OpCode.BOOL_POP) {
+                        // pop top
+                        if (boolTop >= 1) {
+                            boolTop -= 1;
+                        }
+                    }
+                    else if (op == OpCode.BOOL_SWAP) {
+                        // swap top 2
+                        if (boolTop >= 2) {
+                            bool a = boolStack[boolTop - 1];
+                            boolStack[boolTop - 1] = boolStack[boolTop - 2];
+                            boolStack[boolTop - 2] = a;
+                        }
+                    }
+                    else if (op == OpCode.BOOL_FLUSH) {
+                        // empty stack
+                        boolTop = 0;
+                    }
+                    else if (op == OpCode.BOOL_STACKDEPTH) {
+                        // push bool depth onto int stack
+                        intStack[intTop] = boolTop;
+                        intTop++;
+                    }
+                    else if (op == OpCode.BOOL_NOT) {
+
+                    }
+                    else if (op == OpCode.BOOL_AND) {
+
+                    }
+                    else if (op == OpCode.BOOL_OR) {
+
+                    }
+                    else if (op == OpCode.BOOL_EQ) {
+
+                    }
+                    else if (op == OpCode.BOOL_FROMFLOAT) {
+
+                    }
+                    else if (op == OpCode.BOOL_FROMINTEGER) {
+
+                    }
+                    else if (op == OpCode.BOOL_ROT) {
+
+                    }
+                    else if (op == OpCode.BOOL_SHOVE) {
+
+                    }
+                    else if (op == OpCode.BOOL_YANK) {
+
+                    }
+                    else if (op == OpCode.BOOL_YANKDUP) {
+
+                    }
+                    else if (op == OpCode.BOOL_DEFINE) {
+
+                    }
+                    else if (op == OpCode.BOOL_RAND) {
+
+                    }
                 }
             }
             else if (tag == CodeTag.INT_LITERAL) {
