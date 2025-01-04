@@ -140,7 +140,7 @@ contract Push3Interpreter {
      */
     function readUint(bytes calldata code, uint32 start, uint256 numBytes) internal pure returns (uint256 word) {
         uint256 numBits = numBytes * 8;
-        if (start + bytesNum) > code.length) revert ReadUintOutOfRange(numBits);
+        if (start + numBytes > code.length) revert ReadUintOutOfRange(numBits);
         assembly {
             let buf := mload(0x40) // free memory
             // copy exactly x bytes from code into buf
@@ -341,7 +341,7 @@ contract Push3Interpreter {
 
             if (tag == CodeTag.INSTRUCTION) {
                 OpCode op = getOpCode(topDesc);
-                if (op < OPCODE_INTEGER_OFFSET) {
+                if (uint8(op) < OPCODE_INTEGER_OFFSET) {
                     // NOOP, do nothing
                 }
                 else if (uint8(op) < OPCODE_BOOL_OFFSET) {
@@ -437,7 +437,7 @@ contract Push3Interpreter {
             finalIntStack[i] = intStack[i];
         }
 
-        finalBoolStack = new int256[](boolTop);
+        finalBoolStack = new bool[](boolTop);
         for (uint256 i = 0; i < boolTop; i++) {
             finalBoolStack[i] = boolStack[i];
         }
