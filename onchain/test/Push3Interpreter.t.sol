@@ -798,9 +798,110 @@ contract Push3InterpreterTest is Test {
         ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
 
         // Check final result => should be [False, True, True] bool stack
-        assertEq(finalBoolStack.length, 3, "finalBoolStack should have length 1");
+        assertEq(finalBoolStack.length, 3, "finalBoolStack should have length 3");
         assertEq(finalBoolStack[0], false, "Expected to be False as value from middle position moved to bottom of the stack");
         assertEq(finalBoolStack[1], true, "Expected to be True as value from top position moved to middle of the stack");
         assertEq(finalBoolStack[2], true, "Expected to be True as value from bottom position moved to top of the stack");
+    }
+
+    /**
+     * @notice Test pushing literal 0x02, literal True, literal False, literal True, then BOOL_YANKDUP => boolStack[True, False, True, True]
+     *         Result should be copied True on top of bool stack [True, False, True, True]
+     */
+    function test_BoolYankDup() public view {
+        // We'll produce 15 total bytes, same structure
+        // Format: [0x04, 0x000C, 0x02(00 00 00 02) 0x03(01), 0x03(00), 0x03(01), 0x18 => bool_yankdup]
+
+        bytes memory code = hex"04000C020000000203010300030118";
+        // Breaking it down:
+        // 0x04          => SUBLIST
+        // 0x00 0x0C     => length=12
+        // 0x02 0x00000002 => INT_LITERAL(0x02)
+        // 0x03 0x01     => BOOL_LITERAL(True)
+        // 0x03 0x00     => BOOL_LITERAL(False)
+        // 0x03 0x01     => BOOL_LITERAL(True)
+        // 0x18          => BOOL_YANKDUP
+
+        // We'll parse offset=0, length=15
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,   // offset
+            15,  // length
+            0
+        );
+
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+
+        int256[] memory initIntStack = new int256[](0);
+        bool[] memory initBoolStack = new bool[](0);
+
+        // Run
+        (
+            ,
+            ,
+            ,
+            bool[] memory finalBoolStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
+
+        // Check final result => should be [True, False, True, True] bool stack
+        assertEq(finalBoolStack.length, 4, "finalBoolStack should have length 4");
+        assertEq(finalBoolStack[0], true, "Expected to be True as first value from bool literal");
+        assertEq(finalBoolStack[1], false, "Expected to be False as second value from bool literal");
+        assertEq(finalBoolStack[2], true, "Expected to be True as third value from bool literal");
+        assertEq(finalBoolStack[3], true, "Expected to be True as copied value at index 2, which is index 0 for an array");
+    }
+
+    /**
+     * @notice Test pushing BOOL_RAND => boolStack[True] or boolStack[False]
+     *         Result should be either False or True on top of bool stack.
+     */
+    function test_BoolRand() public {
+        // We'll produce 4 total bytes, same structure
+        // Format: [0x04, 0x0001, 0x1A => bool_rand]
+
+        bytes memory code = hex"0400011A";
+        // Breaking it down:
+        // 0x04          => SUBLIST
+        // 0x00 0x01     => length=1
+        // 0x1A          => BOOL_RAND
+
+        // We'll parse offset=0, length=4
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,   // offset
+            4,  // length
+            0
+        );
+
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+
+        int256[] memory initIntStack = new int256[](0);
+        bool[] memory initBoolStack = new bool[](0);
+
+        // Run
+        (
+            ,
+            ,
+            ,
+            bool[] memory finalBoolStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
+
+        // Check final result => should be random bool on top of bool stack
+        assertEq(finalBoolStack.length, 1, "finalBoolStack should have length 1");
+        assertEq(finalBoolStack[0], false, "Expected to be False for default prevrandao, timestamp and msg.sender");
+        // move to another timestamp to get different random result
+        vm.warp(1736055577);
+        (
+            ,
+            ,
+            ,
+            finalBoolStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
+        assertEq(finalBoolStack.length, 1, "finalBoolStack should have length 1");
+        assertEq(finalBoolStack[0], true, "Expected to be True for configured timestamp and default prevrandao, msg.sender");
     }
 }
