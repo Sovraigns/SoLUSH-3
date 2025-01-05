@@ -182,12 +182,12 @@ contract Push3InterpreterTest is Test {
 
     function test_Dup() public view {
 
-        bytes memory code = hex"040006020000000A08";
+        bytes memory code = hex"040009020000000A0803010A";
 
         uint256 sublistDesc = interpreter.makeDescriptor(
             Push3Interpreter.CodeTag.SUBLIST,
             0,
-            9,
+            12,
             0
         );
 
@@ -202,22 +202,24 @@ contract Push3InterpreterTest is Test {
         (
             ,
             ,
-            int256[] memory finalIntStack
-            ,
+            int256[] memory finalIntStack,
+            bool[] memory finalBoolStack
         ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
 
         assertEq(finalIntStack.length, 2, "finalIntStack should have length 1");
-        assertEq(finalIntStack[0], finalIntStack[1], "The top 2 values on the stack should be equal.");
+        assertEq(finalIntStack[0], finalIntStack[1], "The top 2 values on the int stack should be equal.");
+        assertEq(finalBoolStack.length, 2, "finalBoolStack should have length 2");
+        assertEq(finalBoolStack[0], finalBoolStack[1], "The top 2 values on the bool stack should be equal.");
     }
 
     function test_Pop() public view {
 
-        bytes memory code = hex"040006020000000A09";
+        bytes memory code = hex"040009020000000A0903010B";
 
         uint256 sublistDesc = interpreter.makeDescriptor(
             Push3Interpreter.CodeTag.SUBLIST,
             0,
-            9,
+            12,
             0
         );
 
@@ -232,11 +234,12 @@ contract Push3InterpreterTest is Test {
         (
             ,
             ,
-            int256[] memory finalIntStack
-            ,
+            int256[] memory finalIntStack,
+            bool[] memory finalBoolStack
         ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
 
         assertEq(finalIntStack.length, 0, "finalIntStack should be empty");
+        assertEq(finalBoolStack.length, 0, "finalBoolStack should be empty");
     }
 
     /**
@@ -390,5 +393,414 @@ contract Push3InterpreterTest is Test {
 
         // Expect no items pushed => finalIntStack empty
         assertEq(finalIntStack.length, 0, "Expected empty stack if sublist length is out of range => parse break");
+    }
+
+    // BOOL STACK
+
+    /**
+     * @notice Test pushing literal True, literal False, then BOOL_SWAP => [False, True]
+     *
+     * The plan:
+     *  0x04 => SUBLIST token
+     *  0x00 0x05 => subLen=5
+     *
+     *  Then 5 bytes:
+     *    0x03 + (01) => BOOL_LITERAL(True)
+     *    0x03 + (00) => BOOL_LITERAL(False)
+     *    0x0C => BOOL_SWAP
+     */
+    function test_BoolSwap() public view {
+        // We'll produce 8 total bytes, same structure
+        // Format: [0x04, 0x0005, 0x03(01), 0x03(00), 0x0C => bool_swap]
+
+        bytes memory code = hex"040005030103000C";
+        // Breaking it down:
+        // 0x04          => SUBLIST
+        // 0x00 0x05     => length=5
+        // 0x03 0x01     => BOOL_LITERAL(True)
+        // 0x03 0x00     => BOOL_LITERAL(False)
+        // 0x0C          => BOOL_SWAP
+
+        // We'll parse offset=0, length=8
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,   // offset
+            8,  // length
+            0
+        );
+
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+
+        int256[] memory initIntStack = new int256[](0);
+        bool[] memory initBoolStack = new bool[](0);
+
+        // Run
+        (
+            ,
+            ,
+            ,
+            bool[] memory finalBoolStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
+
+        // Check final result => should be [True, False] swapped into [False, True]
+        assertEq(finalBoolStack.length, 2, "finalBoolStack should have length 2");
+        assertEq(finalBoolStack[0], false, "Should be False");
+        assertEq(finalBoolStack[1], true, "Should be True");
+    }
+
+    /**
+     * @notice Test pushing literal True, literal False, then BOOL_FLUSH => []
+     *         Result should be empty stack.
+     */
+    function test_BoolFlush() public view {
+        // We'll produce 8 total bytes, same structure
+        // Format: [0x04, 0x0005, 0x03(01), 0x03(00), 0x0D => bool_flush]
+
+        bytes memory code = hex"040005030103000D";
+        // Breaking it down:
+        // 0x04          => SUBLIST
+        // 0x00 0x05     => length=5
+        // 0x03 0x01     => BOOL_LITERAL(True)
+        // 0x03 0x00     => BOOL_LITERAL(False)
+        // 0x0D          => BOOL_FLUSH
+
+        // We'll parse offset=0, length=8
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,   // offset
+            8,  // length
+            0
+        );
+
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+
+        int256[] memory initIntStack = new int256[](0);
+        bool[] memory initBoolStack = new bool[](0);
+
+        // Run
+        (
+            ,
+            ,
+            ,
+            bool[] memory finalBoolStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
+
+        // Check final result => should be empty bool stack
+        assertEq(finalBoolStack.length, 0, "finalBoolStack should have length 0");
+    }
+
+    /**
+     * @notice Test pushing literal True, literal False, then BOOL_STACKDEPTH => intStack[2]
+     *         Result should be number of pushed literals as intStack top.
+     */
+    function test_BoolStackDepth() public view {
+        // We'll produce 8 total bytes, same structure
+        // Format: [0x04, 0x0005, 0x03(01), 0x03(00), 0x0E => bool_stackdepth]
+
+        bytes memory code = hex"040005030103000E";
+        // Breaking it down:
+        // 0x04          => SUBLIST
+        // 0x00 0x05     => length=5
+        // 0x03 0x01     => BOOL_LITERAL(True)
+        // 0x03 0x00     => BOOL_LITERAL(False)
+        // 0x0E          => BOOL_STACKDEPTH
+
+        // We'll parse offset=0, length=8
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,   // offset
+            8,  // length
+            0
+        );
+
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+
+        int256[] memory initIntStack = new int256[](0);
+        bool[] memory initBoolStack = new bool[](0);
+
+        // Run
+        (
+            ,
+            ,
+            int256[] memory finalIntStack,
+            bool[] memory finalBoolStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
+
+        // Check final result => should be empty bool stack
+        assertEq(finalIntStack.length, 1, "finalIntStack should have length 1");
+        assertEq(finalBoolStack.length, 2, "finalBoolStack should have length 2");
+        assertEq(finalIntStack[0], 2, "IntStack top value should be 2, as we pushed 2 literals onto bool stack");
+    }
+
+    /**
+     * @notice Test pushing literal True, then BOOL_NOT => boolStack[False]
+     *         Result should be False on top of bool stack.
+     */
+    function test_BoolNot() public view {
+        // We'll produce 6 total bytes, same structure
+        // Format: [0x04, 0x0003, 0x03(01), 0x0F => bool_not]
+
+        bytes memory code = hex"04000303010F";
+        // Breaking it down:
+        // 0x04          => SUBLIST
+        // 0x00 0x03     => length=3
+        // 0x03 0x01     => BOOL_LITERAL(True)
+        // 0x0F          => BOOL_NOT
+
+        // We'll parse offset=0, length=6
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,   // offset
+            6,  // length
+            0
+        );
+
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+
+        int256[] memory initIntStack = new int256[](0);
+        bool[] memory initBoolStack = new bool[](0);
+
+        // Run
+        (
+            ,
+            ,
+            ,
+            bool[] memory finalBoolStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
+
+        // Check final result => should be False on top of bool stack
+        assertEq(finalBoolStack.length, 1, "finalBoolStack should have length 1");
+        assertEq(finalBoolStack[0], false, "Expected to be False after logical NOT on True");
+    }
+
+    /**
+     * @notice Test pushing literal True, literal True, then BOOL_AND => boolStack[True]
+     *         Result should be True on top of bool stack.
+     */
+    function test_BoolAnd() public view {
+        // We'll produce 8 total bytes, same structure
+        // Format: [0x04, 0x0005, 0x03(01), 0x03(01) 0x10 => bool_and]
+
+        bytes memory code = hex"0400050301030110";
+        // Breaking it down:
+        // 0x04          => SUBLIST
+        // 0x00 0x05     => length=5
+        // 0x03 0x01     => BOOL_LITERAL(True)
+        // 0x03 0x01     => BOOL_LITERAL(True)
+        // 0x10          => BOOL_AND
+
+        // We'll parse offset=0, length=8
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,   // offset
+            8,  // length
+            0
+        );
+
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+
+        int256[] memory initIntStack = new int256[](0);
+        bool[] memory initBoolStack = new bool[](0);
+
+        // Run
+        (
+            ,
+            ,
+            ,
+            bool[] memory finalBoolStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
+
+        // Check final result => should be True on top of bool stack
+        assertEq(finalBoolStack.length, 1, "finalBoolStack should have length 1");
+        assertEq(finalBoolStack[0], true, "Expected to be True after logical AND on True and True");
+    }
+
+    /**
+     * @notice Test pushing literal True, literal False, then BOOL_OR => boolStack[True]
+     *         Result should be True on top of bool stack.
+     */
+    function test_BoolOr() public view {
+        // We'll produce 8 total bytes, same structure
+        // Format: [0x04, 0x0005, 0x03(01), 0x03(00) 0x11 => bool_or]
+
+        bytes memory code = hex"0400050301030011";
+        // Breaking it down:
+        // 0x04          => SUBLIST
+        // 0x00 0x05     => length=5
+        // 0x03 0x01     => BOOL_LITERAL(True)
+        // 0x03 0x00     => BOOL_LITERAL(False)
+        // 0x11          => BOOL_OR
+
+        // We'll parse offset=0, length=8
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,   // offset
+            8,  // length
+            0
+        );
+
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+
+        int256[] memory initIntStack = new int256[](0);
+        bool[] memory initBoolStack = new bool[](0);
+
+        // Run
+        (
+            ,
+            ,
+            ,
+            bool[] memory finalBoolStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
+
+        // Check final result => should be True on top of bool stack
+        assertEq(finalBoolStack.length, 1, "finalBoolStack should have length 1");
+        assertEq(finalBoolStack[0], true, "Expected to be True after logical OR on True and False");
+    }
+
+    /**
+     * @notice Test pushing literal True, literal False, then BOOL_EQ => boolStack[False]
+     *         Result should be False on top of bool stack.
+     */
+    function test_BoolEq() public view {
+        // We'll produce 8 total bytes, same structure
+        // Format: [0x04, 0x0005, 0x03(01), 0x03(00) 0x12 => bool_eq]
+
+        bytes memory code = hex"0400050301030012";
+        // Breaking it down:
+        // 0x04          => SUBLIST
+        // 0x00 0x05     => length=5
+        // 0x03 0x01     => BOOL_LITERAL(True)
+        // 0x03 0x00     => BOOL_LITERAL(False)
+        // 0x12          => BOOL_EQ
+
+        // We'll parse offset=0, length=8
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,   // offset
+            8,  // length
+            0
+        );
+
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+
+        int256[] memory initIntStack = new int256[](0);
+        bool[] memory initBoolStack = new bool[](0);
+
+        // Run
+        (
+            ,
+            ,
+            ,
+            bool[] memory finalBoolStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
+
+        // Check final result => should be False on top of bool stack
+        assertEq(finalBoolStack.length, 1, "finalBoolStack should have length 1");
+        assertEq(finalBoolStack[0], false, "Expected to be False as True is not equal False");
+    }
+
+    /**
+     * @notice Test pushing literal 0x2145, then BOOL_FROMINTEGER => boolStack[True]
+     *         Result should be True on top of bool stack.
+     */
+    function test_BoolFromInteger() public view {
+        // We'll produce 9 total bytes, same structure
+        // Format: [0x04, 0x0004, 0x02(0x00002145), 0x14 => bool_frominteger]
+
+        bytes memory code = hex"040006020000214514";
+        // Breaking it down:
+        // 0x04            => SUBLIST
+        // 0x00 0x04       => length=6
+        // 0x02 0x00002145 => INT_LITERAL(0x2145)
+        // 0x14            => BOOL_FROMINTEGER
+
+        // We'll parse offset=0, length=9
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,   // offset
+            9,  // length
+            0
+        );
+
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+
+        int256[] memory initIntStack = new int256[](0);
+        bool[] memory initBoolStack = new bool[](0);
+
+        // Run
+        (
+            ,
+            ,
+            int256[] memory finalIntStack,
+            bool[] memory finalBoolStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
+
+        // Check final result => should be True on bool stack
+        assertEq(finalIntStack.length, 0, "finalIntStack should have length 0");
+        assertEq(finalBoolStack.length, 1, "finalBoolStack should have length 1");
+        assertEq(finalBoolStack[0], true, "boolStack top value should be True, as we pushed non-zero literal onto int stack");
+    }
+
+    /**
+     * @notice Test pushing literal True, literal False, literal True, then BOOL_ROT => boolStack[False, True, True]
+     *         Result should be rotated bool stack from [True, False, True] into [False, True, True].
+     */
+    function test_BoolRot() public view {
+        // We'll produce 10 total bytes, same structure
+        // Format: [0x04, 0x0007, 0x03(01), 0x03(00), 0x03(01), 0x15 => bool_rot]
+
+        bytes memory code = hex"04000703010300030115";
+        // Breaking it down:
+        // 0x04          => SUBLIST
+        // 0x00 0x07     => length=7
+        // 0x03 0x01     => BOOL_LITERAL(True)
+        // 0x03 0x00     => BOOL_LITERAL(False)
+        // 0x03 0x01     => BOOL_LITERAL(True)
+        // 0x15          => BOOL_ROT
+
+        // We'll parse offset=0, length=10
+        uint256 sublistDesc = interpreter.makeDescriptor(
+            Push3Interpreter.CodeTag.SUBLIST,
+            0,   // offset
+            10,  // length
+            0
+        );
+
+        uint256[] memory initCodeStack = new uint256[](0);
+        uint256[] memory initExecStack = new uint256[](1);
+        initExecStack[0] = sublistDesc;
+
+        int256[] memory initIntStack = new int256[](0);
+        bool[] memory initBoolStack = new bool[](0);
+
+        // Run
+        (
+            ,
+            ,
+            ,
+            bool[] memory finalBoolStack
+        ) = interpreter.runInterpreter(code, initCodeStack, initExecStack, initIntStack, initBoolStack);
+
+        // Check final result => should be [False, True, True] bool stack
+        assertEq(finalBoolStack.length, 3, "finalBoolStack should have length 1");
+        assertEq(finalBoolStack[0], false, "Expected to be False as value from middle position moved to bottom of the stack");
+        assertEq(finalBoolStack[1], true, "Expected to be True as value from top position moved to middle of the stack");
+        assertEq(finalBoolStack[2], true, "Expected to be True as value from bottom position moved to top of the stack");
     }
 }

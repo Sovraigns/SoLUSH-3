@@ -16,7 +16,7 @@ contract Push3Interpreter {
     // -----------------------------------------------------
     uint8 internal constant OPCODE_INTEGER_OFFSET = uint8(OpCode.INTEGER_PLUS);
     uint8 internal constant OPCODE_BOOL_OFFSET = uint8(OpCode.BOOL_DUP);
-    uint8 internal constant OPCODE_LAST = int8(OpCode.BOOL_RAND);
+    uint8 internal constant OPCODE_LAST = uint8(OpCode.BOOL_RAND);
 
     // -----------------------------------------------------
     // 1. ENUMS
@@ -296,7 +296,7 @@ contract Push3Interpreter {
         bool[] calldata initBoolStack // bool array
     )
         external
-        pure
+        view
         returns (
             uint256[] memory finalCodeStack,
             uint256[] memory finalExecStack,
@@ -393,24 +393,21 @@ contract Push3Interpreter {
                     // BOOL OPCODES
                     if (op == OpCode.BOOL_DUP) {
                         // dup top
-                        if (boolTop >= 1) {
-                            bool a = boolStack[boolTop - 1];
-                            boolStack[boolTop] = a;
+                        if (boolTop > 0) {
+                            boolStack[boolTop] = boolStack[boolTop - 1];
                             boolTop++;
                         }
                     }
                     else if (op == OpCode.BOOL_POP) {
                         // pop top
-                        if (boolTop >= 1) {
-                            boolTop -= 1;
+                        if (boolTop > 0) {
+                            boolTop--;
                         }
                     }
                     else if (op == OpCode.BOOL_SWAP) {
                         // swap top 2
-                        if (boolTop >= 2) {
-                            bool a = boolStack[boolTop - 1];
-                            boolStack[boolTop - 1] = boolStack[boolTop - 2];
-                            boolStack[boolTop - 2] = a;
+                        if (boolTop > 1) {
+                            (boolStack[boolTop - 1], boolStack[boolTop - 2]) = (boolStack[boolTop - 2], boolStack[boolTop - 1]);
                         }
                     }
                     else if (op == OpCode.BOOL_FLUSH) {
@@ -419,44 +416,97 @@ contract Push3Interpreter {
                     }
                     else if (op == OpCode.BOOL_STACKDEPTH) {
                         // push bool depth onto int stack
-                        intStack[intTop] = boolTop;
+                        intStack[intTop] = int256(boolTop);
                         intTop++;
                     }
                     else if (op == OpCode.BOOL_NOT) {
-
+                        // push NOT of top
+                        if (boolTop > 0) {
+                            boolStack[boolTop - 1] = !boolStack[boolTop - 1];
+                        }
                     }
                     else if (op == OpCode.BOOL_AND) {
-
+                        // push AND of top 2
+                        if (boolTop > 1) {
+                            boolStack[boolTop - 2] = boolStack[boolTop - 1] && boolStack[boolTop - 2];
+                            boolTop--;
+                        }
                     }
                     else if (op == OpCode.BOOL_OR) {
-
+                        // push OR of top 2
+                        if (boolTop > 1) {
+                            boolStack[boolTop - 2] = boolStack[boolTop - 1] || boolStack[boolTop - 2];
+                            boolTop--;
+                        }
                     }
                     else if (op == OpCode.BOOL_EQ) {
-
+                        // push True if top 2 equal
+                        if (boolTop > 1) {
+                            boolStack[boolTop - 2] = boolStack[boolTop - 1] == boolStack[boolTop - 2];
+                            boolTop--;
+                        }
                     }
                     else if (op == OpCode.BOOL_FROMFLOAT) {
-
+                        // FLOAT is not implemented yet
                     }
                     else if (op == OpCode.BOOL_FROMINTEGER) {
-
+                        // push True if top int not eq 0
+                        if (intTop > 0) {
+                            boolStack[boolTop] = intStack[intTop - 1] != int256(0);
+                            boolTop++;
+                            intTop--;
+                        }
                     }
                     else if (op == OpCode.BOOL_ROT) {
-
+                        // rotate [top - 3, top - 2, top - 1] into -> [top - 2, top - 1, top - 3]
+                        if (boolTop > 2) {
+                            (boolStack[boolTop - 1], boolStack[boolTop - 2], boolStack[boolTop - 3]) = (boolStack[boolTop - 3], boolStack[boolTop - 1], boolStack[boolTop - 2]);
+                        }
                     }
                     else if (op == OpCode.BOOL_SHOVE) {
-
+                        // Task: Inserts the top BOOLEAN "deep" in the stack, at the position indexed by the top INTEGER.
+                        // Questions: what does "inserts" mean? does it mean that we pop top value and then insert it
+                        // at index? does it mean that array size does not change?
+                        // what happens with the previous element at this index?
+                        // is it correct that this element stays in array?
+                        // should it be moved in top or bottom direction from index (index + || -)?
+                        // does it mean that we need to reindex the whole stack?
+                        // is the simplest solution to reindex to iterate through the whole stack?
+                        // do we really want have such loops?
                     }
                     else if (op == OpCode.BOOL_YANK) {
-
+                        // Task: Removes an indexed item from "deep" in the stack and pushes it on top of the stack. The index is taken from the INTEGER stack.
+                        // Same question as for SHOVE is valid here.
+                        // For example, in our implementation currently we are not really poping
+                        // element from an array in POP, we only adjusting the counter.
+                        // For removing index we would need to loop over the array to reindex.
                     }
                     else if (op == OpCode.BOOL_YANKDUP) {
-
+                        // Task: Pushes a copy of an indexed item "deep" in the stack onto the top of the stack, without removing the deep item. The index is taken from the INTEGER stack.
+                        uint256 index = uint256(intStack[intTop - 1]);
+                        if (boolTop > 2) {
+                            // pop int stack
+                            intTop--;
+                            // index in range (reverse array indexes)
+                            index++; // adjust as boolTop is length, highest index is boolTop - 1
+                            if (index > boolTop) {
+                                index = 0;
+                            } else {
+                                index = boolTop - index;
+                            }
+                            // push value on bool stack
+                            boolStack[boolTop] = boolStack[index];
+                            boolTop++;
+                        }
                     }
                     else if (op == OpCode.BOOL_DEFINE) {
-
+                        // NAME is not implemented yet
                     }
                     else if (op == OpCode.BOOL_RAND) {
-
+                        // Pushes a random BOOLEAN.
+                        uint256 randomNum = uint256(keccak256(abi.encodePacked(block.prevrandao, block.timestamp, msg.sender)));
+                        boolStack[boolTop] = extractBool(randomNum);
+                        boolTop++;
                     }
                 }
             }
