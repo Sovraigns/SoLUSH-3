@@ -146,7 +146,7 @@ impl EvmRunner {
         self.evm.context.modify_tx(|tx| {
             tx.transact_to = TxKind::Call(self.interpreter_addr);
             tx.data = Bytes::from(call_data);
-            tx.nonce += 1; // increment nonce to avoid reuse
+            tx.nonce = 1; // increment nonce to avoid reuse
         });
 
         // 6) Execute the call

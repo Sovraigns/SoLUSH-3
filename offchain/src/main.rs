@@ -1,19 +1,15 @@
 // src/main.rs
-
-mod compiler;
-mod runner;
-
 use std::env;
 
 // We’ll use your existing AST definitions for parsing
-use compiler::ast::{
+use offchain::compiler::ast::{
     parse_string_to_sexpr,
     sexpr_to_untyped,
     Push3Ast, // The trait
     UntypedAst, // The untyped AST enum
 };
 
-use runner::revm_runner::{EvmRunner, Push3InterpreterOutputs}; // <--- We import our EvmRunner
+use offchain::runner::revm_runner::{EvmRunner, Push3InterpreterOutputs}; // <--- We import our EvmRunner
 
 use anyhow::{anyhow, bail, Result};
 use hex;
