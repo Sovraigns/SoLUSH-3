@@ -1,39 +1,50 @@
-//! # ast.rs
-//! This module defines the **Abstract Syntax Trees (ASTs)** for our Push3-like language.
-//!
-//! Currently, we provide only an **untyped AST** (`UntypedAst`), which allows any sequence
-//! of instructions, sublists, or integer literals. This is easy to parse and mutate, but
-//! **does not** enforce correctness of operand types (for example, `INTEGER_PLUS` might
-//! appear even if there's only one integer on the stack).
-//!
-//! ## Future: Typed AST
-//! We **plan** to add a **typed AST** implementation, where each node ensures the correct
-//! number and type of arguments at compile-time. This would prevent invalid programs from
-//! being constructed in the first place. However, that is not implemented here yet—it’s
-//! an **eventual goal** for more advanced genetic programming or verification workflows.
+//! src/compiler/ast.rs
+//! 
+//! This module defines an **abstract** untyped AST for our Push3-like language,
+//! plus a mapping for how to encode opcodes as bytes. We do *not* hardcode numeric
+//! values in the `OpCode` enum. Instead, we provide a trait that can map
+//! opcodes to bytes. This allows us to expand or change instructions easily
+//! (e.g., when the on-chain interpreter adds new opcodes or changes their IDs).
 
-use serde::{Deserialize, Serialize};
-// use std::fmt;
-
-/// A trait describing the core operation: converting an AST to Push3 bytecode.
+/// A trait describing how to convert an AST into Push3 bytecode.
 ///
-/// We might later add more methods here (like parsing from bytecode or mutation).
+/// This is deliberately minimal for now. In the future, we could add more methods
+/// (like parsing from bytecode or AST mutation).
 pub trait Push3Ast {
+    /// Convert this AST into a bytecode vector that the on-chain interpreter
+    /// can parse and execute.
     fn to_bytecode(&self) -> Vec<u8>;
 }
 
-/// The untyped AST: each node is either an integer literal, a single instruction (no children),
-/// or a sublist (which recursively contains more AST nodes).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// A trait that **maps** each [`OpCode`] variant to its **single-byte** representation.
+///
+/// By centralizing this, we can easily add or reorder instructions without rewriting
+/// big chunks of code everywhere. For example, if we add `OpCode::MyNewOp`, we just
+/// update this trait’s logic.
+pub trait OpCodeMapping {
+    /// Given an `OpCode` enum variant, return the corresponding single `u8`
+    /// that the interpreter expects.
+    fn opcode_byte(&self, op: &OpCode) -> u8;
+
+    // If you need reverse-lookup (byte => OpCode), you could add a method like:
+    // fn from_byte(&self, b: u8) -> Option<OpCode>;
+    // for now, we omit it since we only do forward mapping in this file.
+}
+
+/// Our untyped AST node:
+/// - `IntLiteral(i32)` holds a literal integer,
+/// - `Instruction(OpCode)` holds one opcode,
+/// - `Sublist(Vec<UntypedAst>)` holds a collection of nested AST nodes.
+#[derive(Debug, Clone, PartialEq)]
 pub enum UntypedAst {
     IntLiteral(i32),
     Instruction(OpCode),
     Sublist(Vec<UntypedAst>),
 }
 
-/// The set of push3 instructions recognized in our untyped AST.
-/// Each corresponds to a single token byte in `to_bytecode`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// An **abstract** set of opcodes. We do *not* assign numeric values here.
+/// Instead, see [`OpCodeMapping::opcode_byte`] for how we convert them to bytes.
+#[derive(Debug, Clone, PartialEq)]
 pub enum OpCode {
     Noop,
     Plus,
@@ -41,62 +52,78 @@ pub enum OpCode {
     Mult,
     Dup,
     Pop,
+    // Add new instructions here as needed. E.g.:
+    // MyNewOp, etc.
 }
 
-/// Implementation of `Push3Ast` for the **untyped** AST.
-///
-/// This produces bytecode recognized by the Push3Interpreter contract:
-///
-/// - `0x00` => NOOP
-/// - `0x01` => INTEGER_PLUS
-/// - `0x02` => INT_LITERAL => next 4 bytes (little-endian i32)
-/// - `0x03` => SUBLIST => next 2 bytes (big-endian `u16` length), then the sublist contents
-/// - `0x04` => INTEGER_MINUS
-/// - `0x05` => INTEGER_MULT
-/// - `0x06` => INTEGER_DUP
-/// - `0x07` => INTEGER_POP
-impl Push3Ast for UntypedAst {
-    fn to_bytecode(&self) -> Vec<u8> {
+impl UntypedAst {
+    /// Encode this AST into bytecode, using a provided [`OpCodeMapping`].
+    ///
+    /// This method is more flexible than `to_bytecode()`, because you can pass in
+    /// *any* mapping if needed. The method used by the trait’s `to_bytecode()`
+    /// relies on the global `DEFAULT_OP_MAPPING`.
+    pub fn to_bytecode_with_mapping<M: OpCodeMapping>(&self, mapping: &M) -> Vec<u8> {
         match self {
+            // For an integer literal, we write the “tag byte” for int-literal, then 4 bytes (LE).
             UntypedAst::IntLiteral(val) => {
-                // 0x02 => INT_LITERAL => then 4 bytes little-endian
+                // Hardcode 0x02 => INT_LITERAL. 
+                // You *could* put that in the mapping if you want to make that flexible, too.
                 let mut bytes = Vec::with_capacity(1 + 4);
                 bytes.push(0x02);
                 bytes.extend_from_slice(&val.to_be_bytes());
                 bytes
             }
             UntypedAst::Instruction(op) => {
-                // Single byte representing the opcode
-                let byte = match op {
-                    OpCode::Noop => 0x00,
-                    OpCode::Plus => 0x01,
-                    OpCode::Minus => 0x04,
-                    OpCode::Mult => 0x05,
-                    OpCode::Dup => 0x06,
-                    OpCode::Pop => 0x07,
-                };
-                vec![byte]
+                // Use the mapping to find the correct opcode byte:
+                let b = mapping.opcode_byte(op);
+                vec![b]
             }
             UntypedAst::Sublist(children) => {
-                // 0x03 => SUBLIST
-                // Then 2 bytes for the length (big-endian `u16`),
-                // Then the concatenated child bytecode.
+                // Hardcode 0x03 => SUBLIST, then big-endian length, then child payload
                 let mut payload = Vec::new();
                 for child in children {
-                    let child_bytes = child.to_bytecode();
-                    payload.extend_from_slice(&child_bytes);
+                    let child_bytes = child.to_bytecode_with_mapping(mapping);
+                    payload.extend(child_bytes);
                 }
-
                 let sub_len = payload.len() as u16;
                 let mut bytes = Vec::with_capacity(1 + 2 + payload.len());
                 bytes.push(0x03);
                 bytes.extend_from_slice(&sub_len.to_be_bytes()); // big-endian length
-                bytes.extend_from_slice(&payload);
+                bytes.extend(payload);
                 bytes
             }
         }
     }
 }
+
+/// For convenience, we implement `Push3Ast` using a *default* mapping.
+impl Push3Ast for UntypedAst {
+    fn to_bytecode(&self) -> Vec<u8> {
+        self.to_bytecode_with_mapping(&DEFAULT_OP_MAPPING)
+    }
+}
+
+/// A default mapping that corresponds to your current on-chain byte definitions.
+///
+/// This way, if your interpreter changes (e.g., `Minus` becomes 0x0A),
+/// you just update this mapping.
+pub struct DefaultOpCodeMapping;
+
+impl OpCodeMapping for DefaultOpCodeMapping {
+    fn opcode_byte(&self, op: &OpCode) -> u8 {
+        match op {
+            OpCode::Noop  => 0x00, // 0x00 => NOOP
+            OpCode::Plus  => 0x01, // 0x01 => INTEGER_PLUS
+            OpCode::Minus => 0x04, // 0x04 => INTEGER_MINUS
+            OpCode::Mult  => 0x05, // 0x05 => INTEGER_MULT
+            OpCode::Dup   => 0x06, // 0x06 => INTEGER_DUP
+            OpCode::Pop   => 0x07, // 0x07 => INTEGER_POP
+        }
+    }
+}
+
+/// A convenient global `const` or `static` for quick usage.
+pub const DEFAULT_OP_MAPPING: DefaultOpCodeMapping = DefaultOpCodeMapping;
 
 // ----------------------------------------------------------------------------
 // S-Expression Parsing Helpers
