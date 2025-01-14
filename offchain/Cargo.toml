@@ -7,6 +7,14 @@ edition = "2021"
 name = "gp_tester"
 path = "src/bin/gp_tester.rs"
 
+[[bin]]
+name = "gp_spec_tester"
+path = "src/bin/gp_spec_tester.rs"
+
+[[bin]]
+name = "symreg_experiment"
+path = "src/bin/symreg_experiment.rs"
+
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
