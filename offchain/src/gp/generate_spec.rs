@@ -47,7 +47,7 @@ impl InstructionSet {
             InstructionAtom::Opcode(op) => UntypedAst::Instruction(op.clone()),
             InstructionAtom::EphemeralInt => {
                 // For ephemeral int, produce a random literal in some range
-                let val = rng.gen_range(-10..10);
+                let val = rng.gen_range(-100..100);
                 UntypedAst::IntLiteral(val)
             }
         }

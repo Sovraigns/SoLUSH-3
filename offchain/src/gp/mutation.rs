@@ -84,3 +84,64 @@ pub fn mutate_by_index(
     replace_subtree(original, chosen_path, new_subtree)
 }
 
+/// Return the subtree of `original` at `path`, 
+/// cloning it as a `UntypedAst`. 
+/// If `path` is empty => returns the entire `original`.
+pub fn get_subtree(original: &UntypedAst, path: &[usize]) -> UntypedAst {
+    if path.is_empty() {
+        // The entire AST is the subtree
+        return original.clone();
+    }
+
+    match original {
+        UntypedAst::Sublist(children) => {
+            let (first_idx, tail_path) = (path[0], &path[1..]);
+            if first_idx >= children.len() {
+                // If path index is out of range, just clone the entire AST or 
+                // do something fallback
+                return original.clone();
+            }
+            get_subtree(&children[first_idx], tail_path)
+        }
+        UntypedAst::IntLiteral(_) | UntypedAst::Instruction(_) => {
+            // If path is non-empty but this is a leaf, 
+            // fallback: just return the leaf.
+            original.clone()
+        }
+    }
+}
+
+/// Perform a subtree crossover between two ASTs.
+/// 1) We pick a random node in `a` and a random node in `b`,
+/// 2) We swap those subtrees,
+/// 3) Return the two new ASTs.
+///
+/// Example usage:
+/// ```rust
+/// let (childA, childB) = crossover_by_index(&parentA, &parentB, &mut rng);
+/// ```
+pub fn crossover_by_index(
+    a: &UntypedAst,
+    b: &UntypedAst,
+    rng: &mut impl Rng,
+) -> (UntypedAst, UntypedAst) {
+    // 1) enumerate nodes in a
+    let paths_a = enum_nodes_dfs(a);
+    let idx_a = rng.gen_range(0..paths_a.len());
+    let chosen_a = &paths_a[idx_a];
+
+    // 2) enumerate nodes in b
+    let paths_b = enum_nodes_dfs(b);
+    let idx_b = rng.gen_range(0..paths_b.len());
+    let chosen_b = &paths_b[idx_b];
+
+    // 3) get subtree from a, from b
+    let subtree_a = get_subtree(a, chosen_a);
+    let subtree_b = get_subtree(b, chosen_b);
+
+    // 4) replace them
+    let new_a = replace_subtree(a, chosen_a, subtree_b);
+    let new_b = replace_subtree(b, chosen_b, subtree_a);
+
+    (new_a, new_b)
+}
