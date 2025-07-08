@@ -1,5 +1,6 @@
 onchain/cache/
 onchain/out/
-out/
-cache/
-lib/forge-std
+
+offchain/target/
+
+.direnv
