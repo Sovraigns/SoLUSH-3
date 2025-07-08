@@ -9,6 +9,15 @@ import "forge-std/console.sol";
  *      a token-based bytecode approach.
  */
 contract Push3Interpreter {
+    // ReadUint`numBits` out of the code range.
+    error ReadUintOutOfRange(uint256 numBits);
+    // -----------------------------------------------------
+    // 0. CONSTANTS
+    // -----------------------------------------------------
+    uint8 internal constant OPCODE_INTEGER_OFFSET = uint8(OpCode.INTEGER_PLUS);
+    uint8 internal constant OPCODE_BOOL_OFFSET = uint8(OpCode.BOOL_DUP);
+    uint8 internal constant OPCODE_LAST = uint8(OpCode.BOOL_RAND);
+
     // -----------------------------------------------------
     // 1. ENUMS
     // -----------------------------------------------------
@@ -16,16 +25,38 @@ contract Push3Interpreter {
         NO_TAG,       // 0
         INSTRUCTION,  // 1
         INT_LITERAL,  // 2
-        SUBLIST       // 3
+        BOOL_LITERAL, // 3
+        SUBLIST       // 4
     }
 
     enum OpCode {
-        NOOP,          // 0
-        INTEGER_PLUS,  // 1
-        INTEGER_MINUS, // 2
-        INTEGER_MULT,  // 3
-        INTEGER_DUP,   // 4
-        INTEGER_POP    // 5
+        NOOP,            // 0
+        NOOP_1,          // 1 - empty for INSTRUCTION
+        NOOP_2,          // 2 - empty for INT_LITERAL
+        NOOP_3,          // 3 - empty for BOOL_LITERAL
+        NOOP_4,          // 4 - empty for SUBLIST
+        INTEGER_PLUS,    // 5 - OPCODE_INTEGER_OFFSET
+        INTEGER_MINUS,   // OPCODE_INTEGER_OFFSET + 1
+        INTEGER_MULT,    // OPCODE_INTEGER_OFFSET + 2
+        INTEGER_DUP,     // OPCODE_INTEGER_OFFSET + 3
+        INTEGER_POP,     // OPCODE_INTEGER_OFFSET + 4
+        BOOL_DUP,        // 10 - OPCODE_BOOL_OFFSET
+        BOOL_POP,        // OPCODE_BOOL_OFFSET + 1
+        BOOL_SWAP,       // OPCODE_BOOL_OFFSET + 2
+        BOOL_FLUSH,      // OPCODE_BOOL_OFFSET + 3
+        BOOL_STACKDEPTH, // OPCODE_BOOL_OFFSET + 4
+        BOOL_NOT,        // OPCODE_BOOL_OFFSET + 5
+        BOOL_AND,        // OPCODE_BOOL_OFFSET + 6
+        BOOL_OR,         // OPCODE_BOOL_OFFSET + 7
+        BOOL_EQ,         // OPCODE_BOOL_OFFSET + 8
+        BOOL_FROMFLOAT,  // OPCODE_BOOL_OFFSET + 9
+        BOOL_FROMINTEGER,// OPCODE_BOOL_OFFSET + 10
+        BOOL_ROT,        // OPCODE_BOOL_OFFSET + 11
+        BOOL_SHOVE,      // OPCODE_BOOL_OFFSET + 12
+        BOOL_YANK,       // OPCODE_BOOL_OFFSET + 13
+        BOOL_YANKDUP,    // OPCODE_BOOL_OFFSET + 14
+        BOOL_DEFINE,     // OPCODE_BOOL_OFFSET + 15
+        BOOL_RAND        // OPCODE_BOOL_OFFSET + 16
     }
 
     // -----------------------------------------------------
@@ -85,9 +116,19 @@ contract Push3Interpreter {
         return makeDescriptor(CodeTag.INT_LITERAL, 0, 0, masked);
     }
 
+    function makeBoolLiteral(bool val) internal pure returns (uint256) {
+        uint256 masked;
+        if (val) masked = uint256(1);
+        return makeDescriptor(CodeTag.BOOL_LITERAL, 0, 0, masked);
+    }
+
     function extractInt32(uint256 desc) internal pure returns (int32) {
         // read the low 32 bits
         return int32(uint32(getLow184(desc)));
+    }
+
+    function extractBool(uint256 desc) internal pure returns (bool) {
+        return desc & 1 == 1;
     }
 
     // -----------------------------------------------------
@@ -95,46 +136,61 @@ contract Push3Interpreter {
     // -----------------------------------------------------
 
     /**
+     * @dev Read `x` bytes from `code` at `start` as uint.
+     */
+    function readUint(bytes calldata code, uint32 start, uint256 numBytes) internal pure returns (uint256 word) {
+        uint256 numBits = numBytes * 8;
+        if (start + numBytes > code.length) revert ReadUintOutOfRange(numBits);
+        assembly {
+            let buf := mload(0x40) // free memory
+            // copy exactly x bytes from code into buf
+            calldatacopy(buf, add(code.offset, start), numBytes)
+            word := mload(buf)
+        }
+        word >>= 256 - numBits;
+    }
+
+    /**
      * @dev Read 4 bytes from `code` at `start` as uint32.
      */
     function readUint32(bytes calldata code, uint32 start) internal pure returns (uint32 val) {
-        require(start + 4 <= code.length, "readUint32 out of range");
-        uint256 word;
-        assembly {
-            let buf := mload(0x40) // free memory
-            // copy exactly 4 bytes from code into buf
-            calldatacopy(buf, add(code.offset, start), 4)
-            word := mload(buf)
-        }
-        val = uint32(word >> 224);
+        val = uint32(readUint(code, start, 4));
     }
 
     /**
      * @dev Read 2 bytes from `code` at `start` as uint16.
      */
     function readUint16(bytes calldata code, uint32 start) internal pure returns (uint16 val) {
-        require(start + 2 <= code.length, "readUint16 out of range");
-        uint256 word;
-        assembly {
-            let buf := mload(0x40)
-            calldatacopy(buf, add(code.offset, start), 2)
-            word := mload(buf)
-            val := and(word, 0xffff)
-        }
-        // Not sure this is correct
-        val = uint16(word >> 240);
+        val = uint16(readUint(code, start, 2));
+    }
+
+    /**
+     * @dev Read 1 byte from `code` at `start` as uint8.
+     */
+    function readUint8(bytes calldata code, uint32 start) internal pure returns (uint8 val) {
+        val = uint8(readUint(code, start, 1));
+    }
+
+    /**
+     * @dev Read 1 byte from `code` at `start` as bool.
+     */
+    function readBool(bytes calldata code, uint32 start) internal pure returns (bool val) {
+        val = readUint(code, start, 1) & 1 == 1;
     }
 
     // -----------------------------------------------------
     // 4. SUBLIST PARSING
     // -----------------------------------------------------
     /**
-     * Token format:
-     *   0x00 => NOOP
-     *   0x01 => INTEGER_PLUS
+     * Token format is combination of ordered CodeTag and OpCode:
+     *   0x00 => NOOP/NO_TAG
+     *   0x01 => INSTRUCTION => read next 1 byte => OpCode
      *   0x02 => INT_LITERAL => read next 4 bytes => int32
-     *   0x03 => SUBLIST => read next 2 bytes => subLen => parse that
-     *   0x04 => INTEGER_MINUS
+     *   0x03 => BOOL_LITERAL => read next 1 byte => bool
+     *   0x04 => SUBLIST => read next 2 bytes => subLen => parse that
+     *   0x05 => INTEGER_PLUS
+     *   0x06 => INTEGER_MINUS
+     *   ... opcode list with type offsets
      */
     function parseSublist(bytes calldata code, uint32 off, uint32 len)
         internal
@@ -160,9 +216,15 @@ contract Push3Interpreter {
                 count++;
             }
             else if (tokenType == 0x01) {
-                // INTEGER_PLUS
-                temp[count] = makeInstruction(OpCode.INTEGER_PLUS);
-                count++;
+                // INSTRUCTION
+                if (cur + 1 <= endPos && (cur + 1) <= code.length) {
+                    uint8 opcode = readUint8(code,cur);
+                    if (opcode < OPCODE_INTEGER_OFFSET || opcode > OPCODE_LAST) opcode = uint8(0); // NOOP
+                    temp[count] = makeInstruction(OpCode(opcode));
+                    count++;
+                } else {
+                    break;
+                }
             }
             else if (tokenType == 0x02) {
                 // INT_LITERAL => 4 bytes
@@ -177,6 +239,17 @@ contract Push3Interpreter {
                 }
             }
             else if (tokenType == 0x03) {
+                // BOOL_LITERAL
+                if (cur + 1 <= endPos && (cur + 1) <= code.length) {
+                    bool val = readBool(code, cur);
+                    cur += 1;
+                    temp[count] = makeBoolLiteral(val);
+                    count++;
+                } else {
+                    break;
+                }
+            }
+            else if (tokenType == 0x04) {
                 // SUBLIST => read 2 bytes => length
                 if (cur + 2 <= endPos && (cur + 2) <= code.length) {
                     uint16 subLen = readUint16(code, cur);
@@ -194,22 +267,9 @@ contract Push3Interpreter {
                     break;
                 }
             }
-            else if (tokenType == 0x04) {
-                // INTEGER_PLUS
-                temp[count] = makeInstruction(OpCode.INTEGER_MINUS);
-                count++;
-            }
-            else if (tokenType == 0x05) {
-                // INTEGER_PLUS
-                temp[count] = makeInstruction(OpCode.INTEGER_MULT);
-                count++;
-            }
-            else if (tokenType == 0x06) {
-                temp[count] = makeInstruction(OpCode.INTEGER_DUP);
-                count++;
-            }
-            else if (tokenType == 0x07) {
-                temp[count] = makeInstruction(OpCode.INTEGER_POP);
+            else if (tokenType <= OPCODE_LAST) {
+                // OPCODE
+                temp[count] = makeInstruction(OpCode(tokenType));
                 count++;
             }
             else {
@@ -229,17 +289,19 @@ contract Push3Interpreter {
     // 5. MAIN INTERPRETER
     // -----------------------------------------------------
     function runInterpreter(
-        bytes calldata code,
-        uint256[] calldata initCodeStack,
-        uint256[] calldata initExecStack,
-        int256[] calldata initIntStack
+        bytes calldata code, // non-empty - genetic agent (DNA)
+        uint256[] calldata initCodeStack, // empty
+        uint256[] calldata initExecStack, // descriptors
+        int256[] calldata initIntStack, // 32bit word
+        bool[] calldata initBoolStack // bool array
     )
         external
-        pure
+        view
         returns (
             uint256[] memory finalCodeStack,
             uint256[] memory finalExecStack,
-            int256[]  memory finalIntStack
+            int256[]  memory finalIntStack,
+            bool[] memory finalBoolStack
         )
     {
         // A) CODE STACK
@@ -263,6 +325,13 @@ contract Push3Interpreter {
             intStack[k] = initIntStack[k];
         }
 
+        // D) BOOL STACK
+        bool[] memory boolStack = new bool[](initBoolStack.length + 256);
+        uint256 boolTop = initBoolStack.length;
+        for (uint256 k = 0; k < initBoolStack.length; k++) {
+            boolStack[k] = initBoolStack[k];
+        }
+
         // D) MAIN LOOP
         while (execTop > 0) {
             uint256 topDesc = execStack[execTop - 1];
@@ -272,49 +341,172 @@ contract Push3Interpreter {
 
             if (tag == CodeTag.INSTRUCTION) {
                 OpCode op = getOpCode(topDesc);
-                if (op == OpCode.NOOP) {
-                    // do nothing
+                if (uint8(op) < OPCODE_INTEGER_OFFSET) {
+                    // NOOP, do nothing
                 }
-                else if (op == OpCode.INTEGER_PLUS) {
-                    // pop top 2 => sum
-                    if (intTop >= 2) {
-                        int256 a = intStack[intTop - 1];
-                        int256 b = intStack[intTop - 2];
-                        intTop -= 2;
-                        intStack[intTop] = b + a;
-                        intTop++;
+                else if (uint8(op) < OPCODE_BOOL_OFFSET) {
+                    // INTEGER OPCODES
+                    if (op == OpCode.INTEGER_PLUS) {
+                        // pop top 2 => sum
+                        if (intTop >= 2) {
+                            int256 a = intStack[intTop - 1];
+                            int256 b = intStack[intTop - 2];
+                            intTop -= 2;
+                            intStack[intTop] = b + a;
+                            intTop++;
+                        }
+                    }
+                    else if (op == OpCode.INTEGER_MINUS) {
+                        // pop top 2 => minus
+                        if (intTop >= 2) {
+                            int256 a = intStack[intTop - 1];
+                            int256 b = intStack[intTop - 2];
+                            intTop -= 2;
+                            intStack[intTop] = b - a;
+                            intTop++;
+                        }
+                    }
+                    else if (op == OpCode.INTEGER_MULT) {
+                        // pop top 2 => minus
+                        if (intTop >= 2) {
+                            int256 a = intStack[intTop - 1];
+                            int256 b = intStack[intTop - 2];
+                            intTop -= 2;
+                            intStack[intTop] = b * a;
+                            intTop++;
+                        }
+                    }
+                    else if (op == OpCode.INTEGER_DUP) {
+                        if (intTop >= 1) {
+                            int256 a = intStack[intTop - 1];
+                            intStack[intTop] = a;
+                            intTop++;
+                        }
+                    }
+                    else if (op == OpCode.INTEGER_POP) {
+                        if (intTop >= 1) {
+                            intTop -= 1;
+                        }
                     }
                 }
-                else if (op == OpCode.INTEGER_MINUS) {
-                    // pop top 2 => minus
-                    if (intTop >= 2) {
-                        int256 a = intStack[intTop - 1];
-                        int256 b = intStack[intTop - 2];
-                        intTop -= 2;
-                        intStack[intTop] = b - a;
+                else if (uint8(op) <= OPCODE_LAST) {
+                    // BOOL OPCODES
+                    if (op == OpCode.BOOL_DUP) {
+                        // dup top
+                        if (boolTop > 0) {
+                            boolStack[boolTop] = boolStack[boolTop - 1];
+                            boolTop++;
+                        }
+                    }
+                    else if (op == OpCode.BOOL_POP) {
+                        // pop top
+                        if (boolTop > 0) {
+                            boolTop--;
+                        }
+                    }
+                    else if (op == OpCode.BOOL_SWAP) {
+                        // swap top 2
+                        if (boolTop > 1) {
+                            (boolStack[boolTop - 1], boolStack[boolTop - 2]) = (boolStack[boolTop - 2], boolStack[boolTop - 1]);
+                        }
+                    }
+                    else if (op == OpCode.BOOL_FLUSH) {
+                        // empty stack
+                        boolTop = 0;
+                    }
+                    else if (op == OpCode.BOOL_STACKDEPTH) {
+                        // push bool depth onto int stack
+                        intStack[intTop] = int256(boolTop);
                         intTop++;
                     }
-                }
-                else if (op == OpCode.INTEGER_MULT) {
-                    // pop top 2 => minus
-                    if (intTop >= 2) {
-                        int256 a = intStack[intTop - 1];
-                        int256 b = intStack[intTop - 2];
-                        intTop -= 2;
-                        intStack[intTop] = b * a;
-                        intTop++;
+                    else if (op == OpCode.BOOL_NOT) {
+                        // push NOT of top
+                        if (boolTop > 0) {
+                            boolStack[boolTop - 1] = !boolStack[boolTop - 1];
+                        }
                     }
-                }
-                else if (op == OpCode.INTEGER_DUP) {
-                    if (intTop >= 1) {
-                        int256 a = intStack[intTop - 1];
-                        intStack[intTop] = a;
-                        intTop++;
+                    else if (op == OpCode.BOOL_AND) {
+                        // push AND of top 2
+                        if (boolTop > 1) {
+                            boolStack[boolTop - 2] = boolStack[boolTop - 1] && boolStack[boolTop - 2];
+                            boolTop--;
+                        }
                     }
-                }
-                else if (op == OpCode.INTEGER_POP) {
-                    if (intTop >= 1) {
-                        intTop -= 1;
+                    else if (op == OpCode.BOOL_OR) {
+                        // push OR of top 2
+                        if (boolTop > 1) {
+                            boolStack[boolTop - 2] = boolStack[boolTop - 1] || boolStack[boolTop - 2];
+                            boolTop--;
+                        }
+                    }
+                    else if (op == OpCode.BOOL_EQ) {
+                        // push True if top 2 equal
+                        if (boolTop > 1) {
+                            boolStack[boolTop - 2] = boolStack[boolTop - 1] == boolStack[boolTop - 2];
+                            boolTop--;
+                        }
+                    }
+                    else if (op == OpCode.BOOL_FROMFLOAT) {
+                        // FLOAT is not implemented yet
+                    }
+                    else if (op == OpCode.BOOL_FROMINTEGER) {
+                        // push True if top int not eq 0
+                        if (intTop > 0) {
+                            boolStack[boolTop] = intStack[intTop - 1] != int256(0);
+                            boolTop++;
+                            intTop--;
+                        }
+                    }
+                    else if (op == OpCode.BOOL_ROT) {
+                        // rotate [top - 3, top - 2, top - 1] into -> [top - 2, top - 1, top - 3]
+                        if (boolTop > 2) {
+                            (boolStack[boolTop - 1], boolStack[boolTop - 2], boolStack[boolTop - 3]) = (boolStack[boolTop - 3], boolStack[boolTop - 1], boolStack[boolTop - 2]);
+                        }
+                    }
+                    else if (op == OpCode.BOOL_SHOVE) {
+                        // Task: Inserts the top BOOLEAN "deep" in the stack, at the position indexed by the top INTEGER.
+                        // Questions: what does "inserts" mean? does it mean that we pop top value and then insert it
+                        // at index? does it mean that array size does not change?
+                        // what happens with the previous element at this index?
+                        // is it correct that this element stays in array?
+                        // should it be moved in top or bottom direction from index (index + || -)?
+                        // does it mean that we need to reindex the whole stack?
+                        // is the simplest solution to reindex to iterate through the whole stack?
+                        // do we really want have such loops?
+                    }
+                    else if (op == OpCode.BOOL_YANK) {
+                        // Task: Removes an indexed item from "deep" in the stack and pushes it on top of the stack. The index is taken from the INTEGER stack.
+                        // Same question as for SHOVE is valid here.
+                        // For example, in our implementation currently we are not really poping
+                        // element from an array in POP, we only adjusting the counter.
+                        // For removing index we would need to loop over the array to reindex.
+                    }
+                    else if (op == OpCode.BOOL_YANKDUP) {
+                        // Task: Pushes a copy of an indexed item "deep" in the stack onto the top of the stack, without removing the deep item. The index is taken from the INTEGER stack.
+                        uint256 index = uint256(intStack[intTop - 1]);
+                        if (boolTop > 2) {
+                            // pop int stack
+                            intTop--;
+                            // index in range (reverse array indexes)
+                            index++; // adjust as boolTop is length, highest index is boolTop - 1
+                            if (index > boolTop) {
+                                index = 0;
+                            } else {
+                                index = boolTop - index;
+                            }
+                            // push value on bool stack
+                            boolStack[boolTop] = boolStack[index];
+                            boolTop++;
+                        }
+                    }
+                    else if (op == OpCode.BOOL_DEFINE) {
+                        // NAME is not implemented yet
+                    }
+                    else if (op == OpCode.BOOL_RAND) {
+                        // Pushes a random BOOLEAN.
+                        uint256 randomNum = uint256(keccak256(abi.encodePacked(block.prevrandao, block.timestamp, msg.sender)));
+                        boolStack[boolTop] = extractBool(randomNum);
+                        boolTop++;
                     }
                 }
             }
@@ -323,6 +515,11 @@ contract Push3Interpreter {
                 intStack[intTop] = int256(val);
                 intTop++;
             }
+            else if (tag == CodeTag.BOOL_LITERAL) {
+                bool val = extractBool(topDesc);
+                boolStack[boolTop] = val;
+                boolTop++;
+            }
             else if (tag == CodeTag.SUBLIST) {
                 // parse sublist => push in reverse
                 uint32 off = getOffset(topDesc);
@@ -330,8 +527,8 @@ contract Push3Interpreter {
 
                 if (off + len <= code.length) {
                     uint256[] memory parsed = parseSublist(code, off, len);
-                    for (uint256 p = 0; p < parsed.length; p++) {
-                        execStack[execTop] = parsed[parsed.length - 1 - p];
+                    for (uint256 p = 0; p < parsed.length; p++) {       // index 0     1     2
+                        execStack[execTop] = parsed[parsed.length - 1 - p]; // [0x01, 0x20, 0x0a]
                         execTop++;
                     }
                 }
@@ -355,6 +552,11 @@ contract Push3Interpreter {
         finalIntStack = new int256[](intTop);
         for (uint256 i = 0; i < intTop; i++) {
             finalIntStack[i] = intStack[i];
+        }
+
+        finalBoolStack = new bool[](boolTop);
+        for (uint256 i = 0; i < boolTop; i++) {
+            finalBoolStack[i] = boolStack[i];
         }
     }
 }

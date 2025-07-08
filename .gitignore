@@ -4,3 +4,4 @@ onchain/out/
 offchain/target/
 
 .direnv
+.env
