@@ -203,7 +203,7 @@ pub fn diverse_tournament_selection<'a>(
     diversity_weight: f64,
     rng: &mut impl Rng,
 ) -> &'a Individual {
-    let mut tournament: Vec<&Individual> = (0..tournament_size)
+    let tournament: Vec<&Individual> = (0..tournament_size)
         .map(|_| &population[rng.gen_range(0..population.len())])
         .collect();
     

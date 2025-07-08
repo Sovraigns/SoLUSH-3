@@ -46,14 +46,42 @@ pub enum UntypedAst {
 /// Instead, see [`OpCodeMapping::opcode_byte`] for how we convert them to bytes.
 #[derive(Debug, Clone, PartialEq)]
 pub enum OpCode {
+    // Basic operations
     Noop,
     Plus,
     Minus,
     Mult,
     Dup,
     Pop,
-    // Add new instructions here as needed. E.g.:
-    // MyNewOp, etc.
+    
+    // Comparison operations  
+    GreaterThan,    // >
+    LessThan,       // <
+    Equal,          // ==
+    NotEqual,       // !=
+    GreaterEqual,   // >=
+    LessEqual,      // <=
+    
+    // Mathematical functions
+    Sin,            // sine
+    Cos,            // cosine  
+    Sqrt,           // square root
+    Abs,            // absolute value
+    Mod,            // modulo
+    Pow,            // power (x^y)
+    
+    // Constants
+    ConstPi,        // π
+    ConstE,         // e
+    ConstRand,      // random [0,1)
+    
+    // Boolean operations (convert between bool and int stacks)
+    BoolToInt,      // pop bool, push as int (0 or 1)
+    IntToBool,      // pop int, push as bool (0=false, else=true)
+    
+    // Conditional execution
+    IfThen,         // if(bool) then execute next item
+    IfElse,         // if(bool) then item1 else item2
 }
 
 impl UntypedAst {
@@ -112,12 +140,42 @@ pub struct DefaultOpCodeMapping;
 impl OpCodeMapping for DefaultOpCodeMapping {
     fn opcode_byte(&self, op: &OpCode) -> u8 {
         match op {
+            // Basic operations (existing)
             OpCode::Noop  => 0x00, // 0x00 => NOOP
             OpCode::Plus  => 0x05, // 0x05 => INTEGER_PLUS
             OpCode::Minus => 0x06, // 0x06 => INTEGER_MINUS
             OpCode::Mult  => 0x07, // 0x07 => INTEGER_MULT
             OpCode::Dup   => 0x08, // 0x08 => INTEGER_DUP
             OpCode::Pop   => 0x09, // 0x09 => INTEGER_POP
+            
+            // Comparison operations (0x20-0x2F range)
+            OpCode::GreaterThan  => 0x20, // INTEGER_GT
+            OpCode::LessThan     => 0x21, // INTEGER_LT  
+            OpCode::Equal        => 0x22, // INTEGER_EQ
+            OpCode::NotEqual     => 0x23, // INTEGER_NE
+            OpCode::GreaterEqual => 0x24, // INTEGER_GE
+            OpCode::LessEqual    => 0x25, // INTEGER_LE
+            
+            // Mathematical functions (0x30-0x3F range)
+            OpCode::Sin     => 0x30, // INTEGER_SIN
+            OpCode::Cos     => 0x31, // INTEGER_COS
+            OpCode::Sqrt    => 0x32, // INTEGER_SQRT
+            OpCode::Abs     => 0x33, // INTEGER_ABS
+            OpCode::Mod     => 0x34, // INTEGER_MOD
+            OpCode::Pow     => 0x35, // INTEGER_POW
+            
+            // Constants (0x40-0x4F range)
+            OpCode::ConstPi   => 0x40, // CONST_PI
+            OpCode::ConstE    => 0x41, // CONST_E
+            OpCode::ConstRand => 0x42, // CONST_RAND
+            
+            // Type conversions (0x50-0x5F range)
+            OpCode::BoolToInt => 0x50, // BOOL_TO_INT
+            OpCode::IntToBool => 0x51, // INT_TO_BOOL
+            
+            // Conditional operations (0x60-0x6F range)
+            OpCode::IfThen => 0x60, // IF_THEN
+            OpCode::IfElse => 0x61, // IF_ELSE
         }
     }
 }
@@ -224,11 +282,42 @@ pub fn sexpr_to_untyped(expr: &SExpr) -> Result<UntypedAst, String> {
             } else {
                 // 2) Otherwise interpret as an opcode
                 match text.to_uppercase().as_str() {
+                    // Basic operations
                     "+" => Ok(UntypedAst::Instruction(OpCode::Plus)),
                     "-" => Ok(UntypedAst::Instruction(OpCode::Minus)),
                     "*" => Ok(UntypedAst::Instruction(OpCode::Mult)),
                     "DUP" => Ok(UntypedAst::Instruction(OpCode::Dup)),
                     "POP" => Ok(UntypedAst::Instruction(OpCode::Pop)),
+                    
+                    // Comparison operations
+                    ">" => Ok(UntypedAst::Instruction(OpCode::GreaterThan)),
+                    "<" => Ok(UntypedAst::Instruction(OpCode::LessThan)),
+                    "==" => Ok(UntypedAst::Instruction(OpCode::Equal)),
+                    "!=" => Ok(UntypedAst::Instruction(OpCode::NotEqual)),
+                    ">=" => Ok(UntypedAst::Instruction(OpCode::GreaterEqual)),
+                    "<=" => Ok(UntypedAst::Instruction(OpCode::LessEqual)),
+                    
+                    // Mathematical functions
+                    "SIN" => Ok(UntypedAst::Instruction(OpCode::Sin)),
+                    "COS" => Ok(UntypedAst::Instruction(OpCode::Cos)),
+                    "SQRT" => Ok(UntypedAst::Instruction(OpCode::Sqrt)),
+                    "ABS" => Ok(UntypedAst::Instruction(OpCode::Abs)),
+                    "MOD" => Ok(UntypedAst::Instruction(OpCode::Mod)),
+                    "POW" => Ok(UntypedAst::Instruction(OpCode::Pow)),
+                    
+                    // Constants  
+                    "PI" => Ok(UntypedAst::Instruction(OpCode::ConstPi)),
+                    "E" => Ok(UntypedAst::Instruction(OpCode::ConstE)),
+                    "RAND" => Ok(UntypedAst::Instruction(OpCode::ConstRand)),
+                    
+                    // Type conversions
+                    "BOOL_TO_INT" => Ok(UntypedAst::Instruction(OpCode::BoolToInt)),
+                    "INT_TO_BOOL" => Ok(UntypedAst::Instruction(OpCode::IntToBool)),
+                    
+                    // Conditional operations
+                    "IF_THEN" => Ok(UntypedAst::Instruction(OpCode::IfThen)),
+                    "IF_ELSE" => Ok(UntypedAst::Instruction(OpCode::IfElse)),
+                    
                     // unknown => treat as Noop
                     _ => Ok(UntypedAst::Instruction(OpCode::Noop)),
                 }

@@ -27,12 +27,44 @@ impl InstructionSet {
 
         Self {
             atoms: vec![
+                // Basic operations
                 Opcode(Noop),
                 Opcode(Plus),
                 Opcode(Minus),
                 Opcode(Mult),
                 Opcode(Dup),
                 Opcode(Pop),
+                
+                // Comparison operations
+                Opcode(GreaterThan),
+                Opcode(LessThan),
+                Opcode(Equal),
+                Opcode(NotEqual),
+                Opcode(GreaterEqual),
+                Opcode(LessEqual),
+                
+                // Mathematical functions
+                Opcode(Sin),
+                Opcode(Cos),
+                Opcode(Sqrt),
+                Opcode(Abs),
+                Opcode(Mod),
+                Opcode(Pow),
+                
+                // Constants
+                Opcode(ConstPi),
+                Opcode(ConstE),
+                Opcode(ConstRand),
+                
+                // Type conversions
+                Opcode(BoolToInt),
+                Opcode(IntToBool),
+                
+                // Conditional operations
+                Opcode(IfThen),
+                Opcode(IfElse),
+                
+                // Ephemeral constants
                 EphemeralInt,
             ],
         }

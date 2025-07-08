@@ -16,7 +16,7 @@ contract Push3Interpreter {
     // -----------------------------------------------------
     uint8 internal constant OPCODE_INTEGER_OFFSET = uint8(OpCode.INTEGER_PLUS);
     uint8 internal constant OPCODE_BOOL_OFFSET = uint8(OpCode.BOOL_DUP);
-    uint8 internal constant OPCODE_LAST = uint8(OpCode.BOOL_RAND);
+    uint8 internal constant OPCODE_LAST = uint8(OpCode.IF_ELSE);
 
     // -----------------------------------------------------
     // 1. ENUMS
@@ -56,7 +56,36 @@ contract Push3Interpreter {
         BOOL_YANK,       // OPCODE_BOOL_OFFSET + 13
         BOOL_YANKDUP,    // OPCODE_BOOL_OFFSET + 14
         BOOL_DEFINE,     // OPCODE_BOOL_OFFSET + 15
-        BOOL_RAND        // OPCODE_BOOL_OFFSET + 16
+        BOOL_RAND,       // OPCODE_BOOL_OFFSET + 16 (last bool opcode)
+        
+        // Comparison operations (0x20-0x2F range)
+        INTEGER_GT,      // 0x20 - Greater than
+        INTEGER_LT,      // 0x21 - Less than  
+        INTEGER_EQ,      // 0x22 - Equal
+        INTEGER_NE,      // 0x23 - Not equal
+        INTEGER_GE,      // 0x24 - Greater equal
+        INTEGER_LE,      // 0x25 - Less equal
+        
+        // Mathematical functions (0x30-0x3F range)
+        INTEGER_SIN,     // 0x30 - Sine
+        INTEGER_COS,     // 0x31 - Cosine
+        INTEGER_SQRT,    // 0x32 - Square root
+        INTEGER_ABS,     // 0x33 - Absolute value
+        INTEGER_MOD,     // 0x34 - Modulo
+        INTEGER_POW,     // 0x35 - Power
+        
+        // Constants (0x40-0x4F range)
+        CONST_PI,        // 0x40 - π
+        CONST_E,         // 0x41 - e
+        CONST_RAND,      // 0x42 - Random [0,1000)
+        
+        // Type conversions (0x50-0x5F range)
+        BOOL_TO_INT,     // 0x50 - Bool to int
+        INT_TO_BOOL,     // 0x51 - Int to bool
+        
+        // Conditional operations (0x60-0x6F range)
+        IF_THEN,         // 0x60 - If-then
+        IF_ELSE          // 0x61 - If-else
     }
 
     // -----------------------------------------------------
@@ -219,6 +248,7 @@ contract Push3Interpreter {
                 // INSTRUCTION
                 if (cur + 1 <= endPos && (cur + 1) <= code.length) {
                     uint8 opcode = readUint8(code,cur);
+                    cur += 1;
                     if (opcode < OPCODE_INTEGER_OFFSET || opcode > OPCODE_LAST) opcode = uint8(0); // NOOP
                     temp[count] = makeInstruction(OpCode(opcode));
                     count++;
@@ -286,7 +316,200 @@ contract Push3Interpreter {
     }
 
     // -----------------------------------------------------
-    // 5. MAIN INTERPRETER
+    // 5. MATHEMATICAL HELPER FUNCTIONS
+    // -----------------------------------------------------
+    
+    /// Simple integer square root using binary search
+    function _sqrt(uint256 x) internal pure returns (uint256) {
+        if (x == 0) return 0;
+        if (x < 4) return 1;
+        
+        uint256 z = x;
+        uint256 y = x / 2 + 1;
+        while (y < z) {
+            z = y;
+            y = (x / y + y) / 2;
+        }
+        return z;
+    }
+    
+    /// Simple integer power function
+    function _pow(int256 base, int256 exponent) internal pure returns (int256) {
+        if (exponent < 0) return 0;
+        if (exponent == 0) return 1;
+        if (base == 0) return 0;
+        
+        int256 result = 1;
+        int256 b = base;
+        uint256 exp = uint256(exponent);
+        
+        while (exp > 0) {
+            if (exp % 2 == 1) {
+                result = result * b;
+            }
+            b = b * b;
+            exp = exp / 2;
+        }
+        return result;
+    }
+    
+    /// Simplified sine approximation for integers (input in degrees * 10)
+    function _sin(int256 x) internal pure returns (int256) {
+        // Normalize to [0, 3600) (360 degrees * 10)
+        x = x % 3600;
+        if (x < 0) x += 3600;
+        
+        // Simple lookup table for key angles
+        if (x == 0) return 0;        // 0°
+        if (x == 900) return 1000;   // 90°
+        if (x == 1800) return 0;     // 180°
+        if (x == 2700) return -1000; // 270°
+        
+        // Linear approximation for other values
+        if (x <= 900) {
+            return (1000 * x) / 900;
+        } else if (x <= 1800) {
+            return (1000 * (1800 - x)) / 900;
+        } else if (x <= 2700) {
+            return -(1000 * (x - 1800)) / 900;
+        } else {
+            return -(1000 * (3600 - x)) / 900;
+        }
+    }
+    
+    /// Simplified cosine approximation for integers (input in degrees * 10)  
+    function _cos(int256 x) internal pure returns (int256) {
+        // cos(x) = sin(x + 90°)
+        return _sin(x + 900);
+    }
+    
+    // -----------------------------------------------------
+    // 6. EXTENDED OPCODE HANDLER
+    // -----------------------------------------------------
+    
+    function handleExtendedOpcodes(
+        OpCode op,
+        int256[] memory intStack,
+        bool[] memory boolStack,
+        uint256[] memory execStack,
+        uint256 intTop,
+        uint256 boolTop,
+        uint256 execTop
+    ) internal view returns (uint256, uint256, uint256) {
+        // Mathematical functions
+        if (op == OpCode.INTEGER_SIN) {
+            if (intTop >= 1) {
+                int256 a = intStack[intTop - 1];
+                intStack[intTop - 1] = _sin(a);
+            }
+        }
+        else if (op == OpCode.INTEGER_COS) {
+            if (intTop >= 1) {
+                int256 a = intStack[intTop - 1];
+                intStack[intTop - 1] = _cos(a);
+            }
+        }
+        else if (op == OpCode.INTEGER_SQRT) {
+            if (intTop >= 1) {
+                int256 a = intStack[intTop - 1];
+                if (a >= 0) {
+                    intStack[intTop - 1] = int256(_sqrt(uint256(a)));
+                } else {
+                    intStack[intTop - 1] = 0;
+                }
+            }
+        }
+        else if (op == OpCode.INTEGER_ABS) {
+            if (intTop >= 1) {
+                int256 a = intStack[intTop - 1];
+                intStack[intTop - 1] = a >= 0 ? a : -a;
+            }
+        }
+        else if (op == OpCode.INTEGER_MOD) {
+            if (intTop >= 2) {
+                int256 a = intStack[intTop - 1];
+                int256 b = intStack[intTop - 2];
+                intTop -= 2;
+                if (a != 0) {
+                    intStack[intTop] = b % a;
+                } else {
+                    intStack[intTop] = 0;
+                }
+                intTop++;
+            }
+        }
+        else if (op == OpCode.INTEGER_POW) {
+            if (intTop >= 2) {
+                int256 a = intStack[intTop - 1]; // exponent
+                int256 b = intStack[intTop - 2]; // base
+                intTop -= 2;
+                intStack[intTop] = _pow(b, a);
+                intTop++;
+            }
+        }
+        // Constants
+        else if (op == OpCode.CONST_PI) {
+            intStack[intTop] = 3141; // π * 1000 for precision
+            intTop++;
+        }
+        else if (op == OpCode.CONST_E) {
+            intStack[intTop] = 2718; // e * 1000 for precision
+            intTop++;
+        }
+        else if (op == OpCode.CONST_RAND) {
+            uint256 randomNum = uint256(keccak256(abi.encodePacked(block.prevrandao, block.timestamp, msg.sender, intTop)));
+            intStack[intTop] = int256(randomNum % 1000); // Random [0,999]
+            intTop++;
+        }
+        // Type conversions
+        else if (op == OpCode.BOOL_TO_INT) {
+            if (boolTop >= 1) {
+                bool val = boolStack[boolTop - 1];
+                boolTop--;
+                intStack[intTop] = val ? int256(1) : int256(0);
+                intTop++;
+            }
+        }
+        else if (op == OpCode.INT_TO_BOOL) {
+            if (intTop >= 1) {
+                int256 val = intStack[intTop - 1];
+                intTop--;
+                boolStack[boolTop] = val != 0;
+                boolTop++;
+            }
+        }
+        // Conditional operations
+        else if (op == OpCode.IF_THEN) {
+            if (boolTop >= 1 && execTop >= 1) {
+                bool condition = boolStack[boolTop - 1];
+                boolTop--;
+                if (!condition) {
+                    // Skip next instruction by not pushing it back
+                    execTop--;
+                }
+            }
+        }
+        else if (op == OpCode.IF_ELSE) {
+            if (boolTop >= 1 && execTop >= 2) {
+                bool condition = boolStack[boolTop - 1];
+                boolTop--;
+                uint256 thenItem = execStack[execTop - 1];
+                uint256 elseItem = execStack[execTop - 2];
+                execTop -= 2;
+                if (condition) {
+                    execStack[execTop] = thenItem;
+                } else {
+                    execStack[execTop] = elseItem;
+                }
+                execTop++;
+            }
+        }
+        
+        return (intTop, boolTop, execTop);
+    }
+    
+    // -----------------------------------------------------
+    // 7. MAIN INTERPRETER
     // -----------------------------------------------------
     function runInterpreter(
         bytes calldata code, // non-empty - genetic agent (DNA)
@@ -344,8 +567,8 @@ contract Push3Interpreter {
                 if (uint8(op) < OPCODE_INTEGER_OFFSET) {
                     // NOOP, do nothing
                 }
-                else if (uint8(op) < OPCODE_BOOL_OFFSET) {
-                    // INTEGER OPCODES
+                else if (uint8(op) < OPCODE_BOOL_OFFSET || uint8(op) >= 0x20) {
+                    // INTEGER OPCODES and new extended opcodes
                     if (op == OpCode.INTEGER_PLUS) {
                         // pop top 2 => sum
                         if (intTop >= 2) {
@@ -388,8 +611,69 @@ contract Push3Interpreter {
                             intTop -= 1;
                         }
                     }
+                    // Comparison operations - result pushed to bool stack
+                    else if (op == OpCode.INTEGER_GT) {
+                        if (intTop >= 2) {
+                            int256 a = intStack[intTop - 1];
+                            int256 b = intStack[intTop - 2];
+                            intTop -= 2;
+                            boolStack[boolTop] = b > a;
+                            boolTop++;
+                        }
+                    }
+                    else if (op == OpCode.INTEGER_LT) {
+                        if (intTop >= 2) {
+                            int256 a = intStack[intTop - 1];
+                            int256 b = intStack[intTop - 2];
+                            intTop -= 2;
+                            boolStack[boolTop] = b < a;
+                            boolTop++;
+                        }
+                    }
+                    else if (op == OpCode.INTEGER_EQ) {
+                        if (intTop >= 2) {
+                            int256 a = intStack[intTop - 1];
+                            int256 b = intStack[intTop - 2];
+                            intTop -= 2;
+                            boolStack[boolTop] = b == a;
+                            boolTop++;
+                        }
+                    }
+                    else if (op == OpCode.INTEGER_NE) {
+                        if (intTop >= 2) {
+                            int256 a = intStack[intTop - 1];
+                            int256 b = intStack[intTop - 2];
+                            intTop -= 2;
+                            boolStack[boolTop] = b != a;
+                            boolTop++;
+                        }
+                    }
+                    else if (op == OpCode.INTEGER_GE) {
+                        if (intTop >= 2) {
+                            int256 a = intStack[intTop - 1];
+                            int256 b = intStack[intTop - 2];
+                            intTop -= 2;
+                            boolStack[boolTop] = b >= a;
+                            boolTop++;
+                        }
+                    }
+                    else if (op == OpCode.INTEGER_LE) {
+                        if (intTop >= 2) {
+                            int256 a = intStack[intTop - 1];
+                            int256 b = intStack[intTop - 2];
+                            intTop -= 2;
+                            boolStack[boolTop] = b <= a;
+                            boolTop++;
+                        }
+                    }
+                    else {
+                        // Handle extended operations
+                        (intTop, boolTop, execTop) = handleExtendedOpcodes(
+                            op, intStack, boolStack, execStack, intTop, boolTop, execTop
+                        );
+                    }
                 }
-                else if (uint8(op) <= OPCODE_LAST) {
+                else if (uint8(op) >= OPCODE_BOOL_OFFSET && uint8(op) <= uint8(OpCode.BOOL_RAND)) {
                     // BOOL OPCODES
                     if (op == OpCode.BOOL_DUP) {
                         // dup top
