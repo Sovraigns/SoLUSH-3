@@ -113,11 +113,11 @@ impl OpCodeMapping for DefaultOpCodeMapping {
     fn opcode_byte(&self, op: &OpCode) -> u8 {
         match op {
             OpCode::Noop  => 0x00, // 0x00 => NOOP
-            OpCode::Plus  => 0x01, // 0x01 => INTEGER_PLUS
-            OpCode::Minus => 0x04, // 0x04 => INTEGER_MINUS
-            OpCode::Mult  => 0x05, // 0x05 => INTEGER_MULT
-            OpCode::Dup   => 0x06, // 0x06 => INTEGER_DUP
-            OpCode::Pop   => 0x07, // 0x07 => INTEGER_POP
+            OpCode::Plus  => 0x05, // 0x05 => INTEGER_PLUS
+            OpCode::Minus => 0x06, // 0x06 => INTEGER_MINUS
+            OpCode::Mult  => 0x07, // 0x07 => INTEGER_MULT
+            OpCode::Dup   => 0x08, // 0x08 => INTEGER_DUP
+            OpCode::Pop   => 0x09, // 0x09 => INTEGER_POP
         }
     }
 }
