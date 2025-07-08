@@ -259,11 +259,16 @@ Modify reproduction logic in experiment files:
 
 ## Next Steps
 
-Once basic evolution is working:
-1. **Expand instruction set** - Add comparisons, boolean operations
-2. **Improve genetic operators** - Better crossover, point mutations
-3. **Add problem domains** - Control problems, symbolic regression variants
-4. **Optimize performance** - Parallel evaluation, smarter selection
+Priority improvements for enhanced evolution performance:
+1. ~~**Better fitness function design**~~ ✅ **COMPLETED** - Gradual reward system implemented
+2. **More diverse genetic operators** - Point mutation, better crossover strategies, size-aware operations
+3. **Population management improvements** - Enhanced elitism, diversity maintenance, niching
+4. **Expanded instruction set** - Comparisons, constants, control flow, conditionals
+
+Additional enhancements:
+5. **Add problem domains** - Control problems, symbolic regression variants, multi-objective optimization
+6. **Optimize performance** - Parallel evaluation, smarter selection, caching
+7. **Advanced features** - Automatically defined functions (ADFs), co-evolution, novelty search
 
 ## Recent Fixes and Improvements
 
