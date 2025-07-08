@@ -51,6 +51,7 @@ fn evaluate_ast_on_x(
         init_code_stack: Vec::new(),
         init_exec_stack: vec![descriptor],
         init_int_stack: vec![x as i128],
+        init_bool_stack: Vec::new(),
     };
 
     // d) Actually run the interpreter
@@ -70,26 +71,51 @@ fn evaluate_ast_on_x(
     }
 }
 
-/// 3) Evaluate an AST on all (x, y) samples => compute MSE
+/// 3) Evaluate an AST on all (x, y) samples => compute gradual fitness
 fn evaluate_fitness(
     runner: &mut EvmRunner,
     ast: &UntypedAst,
     samples: &[(i32, i32)]
 ) -> f64 {
-    let mut error_sum = 0.0;
-    for &(x, target_y32) in samples {
-        // cast to i64
-        let target_y = target_y32 as i64;
+    let mut total_fitness = 0.0;
+    let mut successful_evaluations = 0;
+    
+    for &(x, target_y) in samples {
+        let predicted = evaluate_ast_on_x(runner, ast, x);
         
-        // evaluate in i64 as well
-        let predicted_i64 = evaluate_ast_on_x(runner, ast, x) as i64;
-        
-        let diff = predicted_i64.wrapping_sub(target_y); 
-        // or you could saturating_sub if you prefer
-
-        error_sum += (diff as f64) * (diff as f64);
+        // Handle execution failures gracefully
+        if predicted == i32::MAX {
+            // Program failed to execute - give small partial credit
+            total_fitness += 0.1;
+        } else {
+            successful_evaluations += 1;
+            let diff = (predicted - target_y).abs() as f64;
+            
+            // Gradual fitness: reward getting closer to target
+            // Use inverse exponential decay for smoother gradients
+            let sample_fitness = if diff == 0.0 {
+                1000.0  // Perfect match gets high reward
+            } else if diff <= 1.0 {
+                100.0 / (1.0 + diff)  // Very close gets good reward
+            } else if diff <= 10.0 {
+                50.0 / (1.0 + diff * 0.5)  // Moderately close gets decent reward  
+            } else if diff <= 100.0 {
+                20.0 / (1.0 + diff * 0.1)  // Within range gets some reward
+            } else {
+                10.0 / (1.0 + diff * 0.01)  // Far but finite gets minimal reward
+            };
+            
+            total_fitness += sample_fitness;
+        }
     }
-    error_sum / samples.len() as f64
+    
+    // Bonus for programs that execute successfully on all samples
+    if successful_evaluations == samples.len() {
+        total_fitness *= 1.2;  // 20% bonus for reliability
+    }
+    
+    // Return average fitness per sample (higher = better)
+    total_fitness / samples.len() as f64
 }
 
 
@@ -103,10 +129,10 @@ fn main() -> Result<()> {
     let mut runner = EvmRunner::new(creation_bytes)?;
 
     // 3) GP parameters
-    let pop_size = 4000;  // must be divisible by 4 for our scheme
-    let generations = 100;
+    let pop_size = 100;  // must be divisible by 4 for our scheme
+    let generations = 5;
     let early_stop_threshold = 1.0;
-    let max_points = 20;
+    let max_points = 10;
 
     assert_eq!(pop_size % 4, 0, "pop_size must be multiple of 4 for our scheme");
     let quarter = pop_size / 4;
@@ -123,18 +149,18 @@ fn main() -> Result<()> {
         // (a) Evaluate
         let mut scored: Vec<(UntypedAst, f64)> = population.into_iter()
             .map(|ast| {
-                let err = evaluate_fitness(&mut runner, &ast, &samples);
-                (ast, err)
+                let fitness = evaluate_fitness(&mut runner, &ast, &samples);
+                (ast, fitness)
             })
             .collect();
 
-        // (b) Sort ascending by error
-        scored.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        // (b) Sort descending by fitness (higher = better)
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
         // (c) Print generation summary
-        let best_err = scored[0].1;
+        let best_fitness = scored[0].1;
         println!("\n=== Generation {gen} ===");
-        println!("Best error = {best_err}");
+        println!("Best fitness = {best_fitness}");
 
         // Print top 5 subjects in pretty format
         // let top_n = 5.min(scored.len());
@@ -147,9 +173,9 @@ fn main() -> Result<()> {
         //     );
         // }
 
-        // early stop?
-        if best_err < early_stop_threshold {
-            println!("Best error < {early_stop_threshold}, stopping early!");
+        // early stop? (high fitness = good)
+        if best_fitness > 900.0 {  // Close to perfect score of 1000+
+            println!("Best fitness > 900.0, stopping early!");
             // we can keep 'scored' for final if we want
             population = scored.into_iter().map(|(a, _)| a).collect();
             break;
@@ -201,20 +227,20 @@ fn main() -> Result<()> {
     let mut final_scored: Vec<(UntypedAst, f64)> = population
         .into_iter()
         .map(|ast| {
-            let err = evaluate_fitness(&mut runner, &ast, &samples);
-            (ast, err)
+            let fitness = evaluate_fitness(&mut runner, &ast, &samples);
+            (ast, fitness)
         })
         .collect();
     
-    // b) Sort ascending by error
-    final_scored.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    // b) Sort descending by fitness (higher = better)
+    final_scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
     
     // c) Print the top 10 (or fewer if the population is smaller)
     let top_n = 10.min(final_scored.len());
     for i in 0..top_n {
-        let (ref ast, err) = final_scored[i];
+        let (ref ast, fitness) = final_scored[i];
         println!(
-            "Subject #{i}, err={err}, AST:\n{:#?}",
+            "Subject #{i}, fitness={fitness}, AST:\n{:#?}",
             ast
         );
     }

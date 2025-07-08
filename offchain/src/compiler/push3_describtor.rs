@@ -12,11 +12,12 @@ use ethers::types::U256;
 /// We'll define small helper functions to build or parse these. 
 /// Our `make_sublist_descriptor` is an example for tag=3 (SUBLIST).
 
-/// Tag constants, if you want them:
-pub const TAG_SUBLIST: u8 = 3;
-pub const TAG_INT_LITERAL: u8 = 2;
-pub const TAG_INSTRUCTION: u8 = 1;
+/// Tag constants, matching Solidity CodeTag enum:
 pub const TAG_NONE: u8 = 0;
+pub const TAG_INSTRUCTION: u8 = 1;
+pub const TAG_INT_LITERAL: u8 = 2;
+pub const TAG_BOOL_LITERAL: u8 = 3;
+pub const TAG_SUBLIST: u8 = 4;
 
 /// A small helper to shift the tag into the top 8 bits.
 #[inline]

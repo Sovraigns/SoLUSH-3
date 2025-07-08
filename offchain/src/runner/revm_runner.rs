@@ -26,19 +26,21 @@ use crate::compiler::ast::{UntypedAst, Push3Ast};
 // If you have a descriptor helper (like make_sublist_descriptor), bring it in:
 use crate::compiler::push3_describtor::make_sublist_descriptor;
 
-/// The input parameters for `runInterpreter(...)`: four fields (code, codeStack, execStack, intStack).
+/// The input parameters for `runInterpreter(...)`: five fields (code, codeStack, execStack, intStack, boolStack).
 pub struct Push3InterpreterInputs {
     pub code: Vec<u8>,
     pub init_code_stack: Vec<U256>,
     pub init_exec_stack: Vec<U256>,
     pub init_int_stack: Vec<i128>,
+    pub init_bool_stack: Vec<bool>,
 }
 
-/// The outputs from `runInterpreter(...)`: three arrays for code/exec/int stacks.
+/// The outputs from `runInterpreter(...)`: four arrays for code/exec/int/bool stacks.
 pub struct Push3InterpreterOutputs {
     pub final_code_stack: Vec<U256>,
     pub final_exec_stack: Vec<U256>,
     pub final_int_stack: Vec<i128>,
+    pub final_bool_stack: Vec<bool>,
 }
 
 /// A thin wrapper around REVM, parameterized by the 4 generics (DB, BLOCK, TX, CFG).
@@ -103,7 +105,7 @@ impl EvmRunner {
         inputs: &Push3InterpreterInputs
     ) -> Result<Push3InterpreterOutputs> {
         // 1) Build function selector
-        let func_selector = &utils::id("runInterpreter(bytes,uint256[],uint256[],int256[])")[0..4];
+        let func_selector = &utils::id("runInterpreter(bytes,uint256[],uint256[],int256[],bool[])")[0..4];
 
         // 2) Convert each field to `ethers::abi::Token`
         let code_token = Token::Bytes(inputs.code.clone());
@@ -129,6 +131,12 @@ impl EvmRunner {
                 })
                 .collect()
         );
+        let init_bool_stack = Token::Array(
+            inputs.init_bool_stack
+                .iter()
+                .map(|&b| Token::Bool(b))
+                .collect()
+        );
 
         // 3) Encode
         let encoded_args = encode(&[
@@ -136,6 +144,7 @@ impl EvmRunner {
             init_code_stack,
             init_exec_stack,
             init_int_stack,
+            init_bool_stack,
         ]);
 
         // 4) Build final call data
@@ -156,11 +165,12 @@ impl EvmRunner {
                 output: Output::Call(return_data),
                 ..
             } => {
-                // 7) Decode (uint256[], uint256[], int256[])
+                // 7) Decode (uint256[], uint256[], int256[], bool[])
                 let param_types = &[
                     ParamType::Array(Box::new(ParamType::Uint(256))), // finalCodeStack
                     ParamType::Array(Box::new(ParamType::Uint(256))), // finalExecStack
                     ParamType::Array(Box::new(ParamType::Int(256))),  // finalIntStack
+                    ParamType::Array(Box::new(ParamType::Bool)),      // finalBoolStack
                 ];
                 let decoded = decode(param_types, return_data)
                     .map_err(|e| anyhow!("Failed to decode return data: {e}"))?;
@@ -190,11 +200,18 @@ impl EvmRunner {
                     }).collect(),
                     _ => Vec::new(),
                 };
+                let final_bool_stack = match &decoded[3] {
+                    Token::Array(arr) => arr.iter().filter_map(|t| {
+                        if let Token::Bool(b) = t { Some(*b) } else { None }
+                    }).collect(),
+                    _ => Vec::new(),
+                };
 
                 Ok(Push3InterpreterOutputs {
                     final_code_stack,
                     final_exec_stack,
                     final_int_stack,
+                    final_bool_stack,
                 })
             }
             ExecutionResult::Revert { gas_used, output } => {
@@ -224,6 +241,7 @@ impl EvmRunner {
             init_code_stack: Vec::new(),
             init_exec_stack: vec![descriptor],
             init_int_stack: Vec::new(),
+            init_bool_stack: Vec::new(),
         };
 
         // 4) Run interpreter
